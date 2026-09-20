@@ -501,7 +501,7 @@ function escapeHTML(value) {
 async function api(path, options = {}) {
   const headers = { "content-type": "application/json", ...(options.headers || {}) };
   if (state.profileToken) headers.authorization = `Bearer ${state.profileToken}`;
-  const response = await fetch(`/api/game/${path}`, { ...options, headers });
+  const response = await fetch(`/api/game/${path}`, { ...options, headers, cache: "no-store" });
   let payload = {};
   try { payload = await response.json(); } catch { /* Réponse sans JSON. */ }
   if (!response.ok) {
@@ -595,7 +595,13 @@ async function submitDuel(event) {
   try {
     const result = await api("matches", { method: "POST", body: JSON.stringify({ opponentName: data.get("opponent"), difficulty: data.get("difficulty") }) });
     els.duelFormMessage.textContent = result.message; els.duelForm.reset(); await openDuelHome();
-  } catch (error) { els.duelFormMessage.textContent = error.message; }
+  } catch (error) {
+    if (error.status === 409 && error.message.includes("défi est déjà")) {
+      const message = error.message;
+      await openDuelHome();
+      els.duelFormMessage.textContent = `${message} La partie existante est affichée ci-contre.`;
+    } else els.duelFormMessage.textContent = error.message;
+  }
   finally { submit.disabled = false; }
 }
 
@@ -778,7 +784,9 @@ async function installApp() {
 window.addEventListener("beforeinstallprompt", (event) => { event.preventDefault(); deferredInstallPrompt = event; });
 window.addEventListener("appinstalled", () => { deferredInstallPrompt = null; els.installButton.classList.add("installed"); });
 if (isStandalone()) els.installButton.classList.add("installed");
-if ("serviceWorker" in navigator) window.addEventListener("load", () => { navigator.serviceWorker.register("./service-worker.js").catch(() => {}); });
+if ("serviceWorker" in navigator) window.addEventListener("load", () => {
+  navigator.serviceWorker.register("./service-worker.js").then((registration) => registration.update()).catch(() => {});
+});
 
 document.addEventListener("click", (event) => {
   const actionButton = event.target.closest("[data-action]");
