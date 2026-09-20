@@ -501,7 +501,9 @@ function escapeHTML(value) {
 async function api(path, options = {}) {
   const headers = { "content-type": "application/json", ...(options.headers || {}) };
   if (state.profileToken) headers.authorization = `Bearer ${state.profileToken}`;
-  const response = await fetch(`/api/game/${path}`, { ...options, headers, cache: "no-store" });
+  const method = String(options.method || "GET").toUpperCase();
+  const freshPath = method === "GET" ? `${path}${path.includes("?") ? "&" : "?"}_=${Date.now()}` : path;
+  const response = await fetch(`/api/game/${freshPath}`, { ...options, headers, cache: "no-store" });
   let payload = {};
   try { payload = await response.json(); } catch { /* Réponse sans JSON. */ }
   if (!response.ok) {
