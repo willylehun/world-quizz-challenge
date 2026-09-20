@@ -1,12 +1,12 @@
 "use strict";
 
-const CACHE_NAME = "wqc-v3";
+const CACHE_NAME = "wqc-v4";
 const BASE_URL = new URL("./", self.location.href);
 const APP_SHELL = [
   "./",
   "index.html",
-  "styles.css",
-  "app.js",
+  "styles.css?v=4",
+  "app.js?v=4",
   "manifest.webmanifest",
   "icons/icon.svg",
   "icons/icon-192.png",
@@ -29,6 +29,18 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET" || new URL(event.request.url).origin !== self.location.origin) return;
+  if (event.request.mode === "navigate") {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          const copy = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+          return response;
+        })
+        .catch(() => caches.match(event.request).then((cached) => cached || caches.match(new URL("index.html", BASE_URL).href))),
+    );
+    return;
+  }
   const isCountryData = new URL(event.request.url).pathname.endsWith("/data/countries.csv");
   if (isCountryData) {
     event.respondWith(
