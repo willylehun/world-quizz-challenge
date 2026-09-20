@@ -1,12 +1,12 @@
 "use strict";
 
-const CACHE_NAME = "wqc-v6";
+const CACHE_NAME = "wqc-v7";
 const BASE_URL = new URL("./", self.location.href);
 const APP_SHELL = [
   "./",
   "game.html",
-  "styles.css?v=6",
-  "app.js?v=6",
+  "styles.css?v=7",
+  "app.js?v=7",
   "manifest.webmanifest",
   "icons/icon.svg",
   "icons/icon-192.png",
@@ -28,7 +28,12 @@ self.addEventListener("activate", (event) => {
 });
 
 self.addEventListener("fetch", (event) => {
-  if (event.request.method !== "GET" || new URL(event.request.url).origin !== self.location.origin) return;
+  const requestUrl = new URL(event.request.url);
+  if (event.request.method !== "GET" || requestUrl.origin !== self.location.origin) return;
+  if (requestUrl.pathname.startsWith("/api/")) {
+    event.respondWith(fetch(event.request));
+    return;
+  }
   if (event.request.mode === "navigate") {
     event.respondWith(
       fetch(event.request)
@@ -41,7 +46,7 @@ self.addEventListener("fetch", (event) => {
     );
     return;
   }
-  const isCountryData = new URL(event.request.url).pathname.endsWith("/data/countries.csv");
+  const isCountryData = requestUrl.pathname.endsWith("/data/countries.csv");
   if (isCountryData) {
     event.respondWith(
       fetch(event.request)
