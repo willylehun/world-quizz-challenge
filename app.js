@@ -51,6 +51,8 @@ const state = {
   jokers: { switch: true, correct: true, erase: true },
 };
 
+let deferredInstallPrompt = null;
+
 const storage = {
   get(key, fallback) {
     try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; }
@@ -83,6 +85,8 @@ const els = {
   resultActions: document.querySelector("#result-actions"),
   scoresDialog: document.querySelector("#scores-dialog"),
   confirmDialog: document.querySelector("#confirm-dialog"),
+  installDialog: document.querySelector("#install-dialog"),
+  installButton: document.querySelector('[data-action="install"]'),
   scoresContent: document.querySelector("#scores-content"),
   dataError: document.querySelector("#data-error"),
 };
@@ -376,15 +380,16 @@ function renderResult() {
     els.resultMessage.textContent = passed
       ? state.level === 100 ? "Tu as terminé les 100 niveaux de World Quizz Challenge." : `Objectif atteint : ${target}/10. Le niveau suivant est maintenant débloqué.`
       : `Il fallait obtenir ${target}/10 pour débloquer le niveau suivant. Tu peux retenter ta chance.`;
+    const nextLevel = passed && state.level < 100 ? state.level + 1 : state.level;
     els.resultActions.innerHTML = `
-      ${passed && state.level < 100 ? `<button class="primary-button" type="button" data-next-level="${state.level + 1}">Niveau suivant</button>` : `<button class="primary-button" type="button" data-retry-level="${state.level}">Rejouer</button>`}
-      <button class="secondary-button" type="button" data-action="open-classic">Voir les niveaux</button>`;
+      <button class="secondary-button" type="button" data-action="open-classic">Retour</button>
+      <button class="primary-button" type="button" data-next-level="${nextLevel}">Quiz suivant</button>`;
   } else {
     els.resultTitle.textContent = state.score >= 8 ? "Excellent !" : state.score >= 5 ? "Bien joué !" : "Continue à t’entraîner !";
     els.resultMessage.textContent = `Ton meilleur score pour ce quiz est enregistré. Tu as trouvé ${state.score} bonne${state.score > 1 ? "s" : ""} réponse${state.score > 1 ? "s" : ""}.`;
     els.resultActions.innerHTML = `
-      <button class="primary-button" type="button" data-action="retry-training">Rejouer</button>
-      <button class="secondary-button" type="button" data-action="open-training">Changer de quiz</button>`;
+      <button class="secondary-button" type="button" data-action="return-training">Retour</button>
+      <button class="primary-button" type="button" data-action="retry-training">Quiz suivant</button>`;
   }
 }
 
@@ -420,9 +425,45 @@ function handleAction(action) {
   if (action === "scores") showScores("classic");
   if (action === "close-scores") els.scoresDialog.close();
   if (action === "retry-training") startTraining();
+  if (action === "return-training") { renderTypes(); showScreen("training-type"); }
+  if (action === "install") installApp();
+  if (action === "close-install") els.installDialog.close();
   if (action === "quit-quiz") els.confirmDialog.showModal();
   if (action === "cancel-quit") els.confirmDialog.close();
   if (action === "confirm-quit") { els.confirmDialog.close(); state.mode === "classic" ? (renderLevels(), showScreen("classic-levels")) : (renderRegions(), showScreen("training-region")); }
+}
+
+function isStandalone() {
+  return window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+}
+
+async function installApp() {
+  if (isStandalone()) return;
+  if (deferredInstallPrompt) {
+    deferredInstallPrompt.prompt();
+    await deferredInstallPrompt.userChoice;
+    deferredInstallPrompt = null;
+    return;
+  }
+  if (!els.installDialog.open) els.installDialog.showModal();
+}
+
+window.addEventListener("beforeinstallprompt", (event) => {
+  event.preventDefault();
+  deferredInstallPrompt = event;
+});
+
+window.addEventListener("appinstalled", () => {
+  deferredInstallPrompt = null;
+  els.installButton.classList.add("installed");
+});
+
+if (isStandalone()) els.installButton.classList.add("installed");
+
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./service-worker.js").catch(() => {});
+  });
 }
 
 document.addEventListener("click", (event) => {

@@ -79,7 +79,10 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 3px; }
 
 .brand-name { font-weight: 750; letter-spacing: -0.02em; }
 
-.score-button {
+.topbar-actions { display: flex; align-items: center; gap: 10px; }
+
+.score-button,
+.install-button {
   border: 1px solid var(--line);
   border-radius: 999px;
   color: var(--ink);
@@ -91,8 +94,12 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 3px; }
   cursor: pointer;
   transition: border-color 160ms ease, transform 160ms ease;
 }
+.install-button { color: var(--teal); }
+.install-button span:first-child { font-size: 1.12rem; font-weight: 900; }
 .score-button span:first-child { color: var(--gold); }
-.score-button:hover { border-color: var(--teal); transform: translateY(-2px); }
+.score-button:hover,
+.install-button:hover { border-color: var(--teal); transform: translateY(-2px); }
+.install-button.installed { display: none; }
 
 main { flex: 1; display: flex; }
 .screen { width: 100%; flex: 1; }
@@ -186,7 +193,18 @@ main { flex: 1; display: flex; }
 .home-stats div { display: flex; align-items: baseline; gap: 8px; }
 .home-stats strong { font-size: 1.25rem; color: var(--gold); }
 .home-stats span { color: var(--muted); font-size: 0.86rem; }
-.signature { position: absolute; right: 0; bottom: 15px; color: rgba(255,255,255,.38); font-family: Georgia, serif; font-style: italic; }
+.signature {
+  grid-column: 1 / -1;
+  justify-self: end;
+  position: static;
+  margin-top: -28px;
+  padding: 12px 4px 2px;
+  color: rgba(255,255,255,.62);
+  font-family: Georgia, serif;
+  font-style: italic;
+  font-weight: 700;
+  z-index: 2;
+}
 
 .section-heading {
   display: grid;
@@ -366,6 +384,11 @@ dialog::backdrop { background: rgba(1, 6, 14, .78); backdrop-filter: blur(6px); 
 .confirm-dialog h2 { margin-top: 0; }
 .confirm-dialog p { color: var(--muted); line-height: 1.5; }
 .dialog-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px; }
+.install-dialog { width: min(540px, calc(100% - 28px)); border-radius: 24px; padding: 0; }
+.install-copy { padding: 24px 28px 30px; color: var(--muted); line-height: 1.6; }
+.install-copy p { margin-top: 0; }
+.install-copy ol { margin: 18px 0 0; padding-left: 22px; }
+.install-copy strong { color: var(--ink); }
 .data-error { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); padding: 14px 18px; border-radius: 12px; background: var(--red); color: #28070e; font-weight: 800; }
 
 @media (max-width: 900px) {
@@ -380,15 +403,17 @@ dialog::backdrop { background: rgba(1, 6, 14, .78); backdrop-filter: blur(6px); 
   .topbar { height: 64px; }
   .brand-name { display: none; }
   .brand-mark { width: 49px; height: 40px; }
-  .score-button span:last-child { display: none; }
-  .score-button { width: 44px; height: 44px; justify-content: center; padding: 0; }
+  .score-button span:last-child,
+  .install-button span:last-child { display: none; }
+  .score-button,
+  .install-button { width: 44px; height: 44px; justify-content: center; padding: 0; }
   .home-screen { padding-top: 28px; gap: 28px; }
   .hero-copy h1 { font-size: 3.3rem; }
   .hero-copy p { margin-top: 17px; }
   .mode-card { min-height: 130px; padding: 20px 17px; gap: 13px; }
   .home-stats { gap: 18px; justify-content: space-between; }
   .home-stats div { display: grid; gap: 1px; }
-  .signature { bottom: 9px; }
+  .signature { margin-top: -12px; padding-bottom: 8px; }
   .section-heading { margin: 28px 0 27px; gap: 14px; }
   .choice-grid { grid-template-columns: 1fr; }
   .choice-card { min-height: 115px; }
