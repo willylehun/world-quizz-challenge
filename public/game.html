@@ -13,13 +13,13 @@
     <link rel="icon" type="image/svg+xml" href="icons/icon.svg" />
     <link rel="apple-touch-icon" href="icons/icon-192.png" />
     <title>World Quizz Challenge</title>
-    <link rel="stylesheet" href="styles.css?v=10" />
+    <link rel="stylesheet" href="styles.css?v=11" />
   </head>
   <body>
     <div class="app-shell">
       <header class="topbar">
         <button class="brand" type="button" data-action="home" aria-label="Retour au menu principal">
-          <span class="brand-mark">WQC</span>
+          <img class="brand-logo" src="icons/icon.svg" alt="" />
           <span class="brand-name">World Quizz Challenge</span>
         </button>
         <div class="topbar-actions">
@@ -46,10 +46,13 @@
 
       <main id="app" tabindex="-1" aria-live="polite">
         <section class="screen home-screen" data-screen="home">
-          <div class="hero-copy">
-            <div class="eyebrow">Le monde en 10 questions</div>
-            <h1>À toi de jouer.</h1>
-            <p>Pays, capitales et dirigeants : choisis ton défi et grimpe dans le classement.</p>
+          <div class="continent-progress-card">
+            <p class="home-intro">Pays, capitales et dirigeants : choisis ton défi et grimpe dans le classement.</p>
+            <div class="continent-progress-heading">
+              <div><span class="eyebrow">Ta progression</span><h1>Par continent</h1></div>
+              <strong id="world-progress-average">0%</strong>
+            </div>
+            <div class="continent-progress-chart" id="continent-progress-chart" aria-label="Taux de bonnes réponses par continent"></div>
           </div>
 
           <div class="mode-grid">
@@ -296,7 +299,7 @@
     </dialog>
 
     <dialog id="profile-setup-dialog" class="profile-dialog" data-locked="true">
-      <span class="brand-mark">WQC</span>
+      <img class="brand-logo profile-logo" src="icons/icon.svg" alt="Logo WQC" />
       <span class="eyebrow">Premier lancement</span>
       <h2>Crée ton profil de joueur</h2>
       <p>Aucun compte externe, aucun e-mail : choisis simplement un pseudo unique pour défier tes amis.</p>
@@ -347,6 +350,6 @@
     <div id="data-error" class="data-error hidden" role="alert">
       Impossible de charger les questions. Recharge la page pour réessayer.
     </div>
-    <script src="app.js?v=10" defer></script>
+    <script src="app.js?v=11" defer></script>
   </body>
 </html>

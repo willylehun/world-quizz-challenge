@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="112" fill="#071529"/>
-  <circle cx="256" cy="256" r="184" fill="none" stroke="#153956" stroke-width="18"/>
-  <path d="M109 256h294M256 73c-48 48-72 109-72 183s24 135 72 183M256 73c48 48 72 109 72 183s-24 135-72 183" fill="none" stroke="#f8c85a" stroke-width="12" stroke-linecap="round" opacity=".78"/>
-  <text x="256" y="287" fill="#2dd4bf" font-family="Arial, Helvetica, sans-serif" font-size="112" font-weight="900" text-anchor="middle" letter-spacing="-7">WQC</text>
+  <rect width="512" height="512" rx="112" fill="#010205"/>
+  <circle cx="256" cy="256" r="184" fill="none" stroke="#2d6b91" stroke-width="18"/>
+  <path d="M109 256h294M73 256c48-48 109-72 183-72s135 24 183 72M73 256c48 48 109 72 183 72s135-24 183-72" fill="none" stroke="#ffd65c" stroke-width="12" stroke-linecap="round" opacity=".92"/>
+  <text x="256" y="292" fill="#ff3347" stroke="#010205" stroke-width="11" paint-order="stroke fill" font-family="Arial, Helvetica, sans-serif" font-size="118" font-weight="900" text-anchor="middle" letter-spacing="-7">WQC</text>
 </svg>

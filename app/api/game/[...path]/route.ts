@@ -96,7 +96,7 @@ function publicMatch(row: MatchRow, profile: Profile) {
     player2: { id: row.player2_id, name: row.player2_name, score: row.player2_score },
     eraseAvailable: isPlayer1 ? !row.player1_erase_used : !row.player2_erase_used,
     winnerId: row.winner_id,
-    question: question ? { prompt: question.prompt, options: question.options, kicker: question.kicker, index: row.question_index } : null,
+    question: question ? { prompt: question.prompt, options: question.options, kicker: question.kicker, answerIso: question.answerIso, index: row.question_index } : null,
     review: row.status === "complete" ? questions.map((item, index) => ({
       index,
       prompt: item.prompt,

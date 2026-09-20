@@ -30,6 +30,14 @@ const FIELD_LABELS = {
   leader: "Qui est le dirigeant effectif correspondant ?",
 };
 
+const CONTINENT_PROGRESS = [
+  { id: "Europe", label: "Europe", color: "#4da3ff" },
+  { id: "Afrique", label: "Afrique", color: "#f5a623" },
+  { id: "Asie", label: "Asie", color: "#ff596d" },
+  { id: "Amérique", label: "Amérique", color: "#38d39f" },
+  { id: "Océanie", label: "Océanie", color: "#a978ff" },
+];
+
 const CAPITAL_TRAPS = {
   FR: ["Lyon", "Marseille", "Bordeaux"],
   GB: ["Manchester", "Birmingham", "Édimbourg"],
@@ -132,7 +140,7 @@ const EASY_RANK = [
   "KM","ST","MR","DM","GD","LC","VC","AG","KN","PW","FM","MH","KI","NR","TV","SM"
 ];
 
-const STORAGE_KEYS = ["wqc-classic", "wqc-training", "wqc-challenge", "wqc-wallet", "wqc-question-history"];
+const STORAGE_KEYS = ["wqc-classic", "wqc-training", "wqc-challenge", "wqc-wallet", "wqc-question-history", "wqc-continent-stats"];
 const state = {
   countries: [], screen: "home", mode: null, region: null, type: null, level: null,
   challengeId: null, tier: null, pendingChallengeId: null,
@@ -198,6 +206,7 @@ const els = {
   duelReviewQuestion: document.querySelector("#duel-review-question"), duelReviewAnswers: document.querySelector("#duel-review-answers"),
   duelReviewLegend: document.querySelector("#duel-review-legend"), duelReviewPrevious: document.querySelector("#duel-review-previous"),
   duelReviewNext: document.querySelector("#duel-review-next"),
+  continentProgressChart: document.querySelector("#continent-progress-chart"), worldProgressAverage: document.querySelector("#world-progress-average"),
 };
 
 function parseCSV(text) {
@@ -239,8 +248,47 @@ function showScreen(name) {
   if (state.duelPoll) { clearInterval(state.duelPoll); state.duelPoll = null; }
   state.screen = name;
   els.screens.forEach((screen) => screen.classList.toggle("hidden", screen.dataset.screen !== name));
+  if (name === "home") renderContinentProgress();
   document.querySelector("main").focus({ preventScroll: true });
   window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function continentProgressKey(continent) {
+  return continent?.startsWith("Amérique") ? "Amérique" : continent;
+}
+
+function getContinentStats() {
+  const stored = storage.get("wqc-continent-stats", {});
+  return Object.fromEntries(CONTINENT_PROGRESS.map((continent) => {
+    const entry = stored[continent.id] || {};
+    return [continent.id, { correct: Math.max(0, Number(entry.correct) || 0), total: Math.max(0, Number(entry.total) || 0) }];
+  }));
+}
+
+function recordContinentAnswer(answerIso, isCorrect) {
+  const country = state.countries.find((item) => item.iso === answerIso);
+  const continent = continentProgressKey(country?.continent);
+  if (!CONTINENT_PROGRESS.some((item) => item.id === continent)) return;
+  const stats = getContinentStats();
+  stats[continent].total += 1;
+  if (isCorrect) stats[continent].correct += 1;
+  storage.set("wqc-continent-stats", stats);
+}
+
+function renderContinentProgress() {
+  if (!els.continentProgressChart || !els.worldProgressAverage) return;
+  const stats = getContinentStats();
+  const totals = Object.values(stats).reduce((sum, item) => ({ correct: sum.correct + item.correct, total: sum.total + item.total }), { correct: 0, total: 0 });
+  els.worldProgressAverage.textContent = `${totals.total ? Math.round((totals.correct / totals.total) * 100) : 0}%`;
+  els.continentProgressChart.innerHTML = CONTINENT_PROGRESS.map((continent) => {
+    const entry = stats[continent.id], percent = entry.total ? Math.round((entry.correct / entry.total) * 100) : 0;
+    const detail = entry.total ? `${entry.correct}/${entry.total}` : "À découvrir";
+    return `<div class="continent-progress-row" style="--continent-color:${continent.color}">
+      <div class="continent-progress-label"><strong>${continent.label}</strong><span>${detail}</span></div>
+      <div class="continent-progress-track"><span style="width:${percent}%"></span></div>
+      <strong class="continent-progress-percent">${percent}%</strong>
+    </div>`;
+  }).join("");
 }
 
 function getWallet() { return Math.max(0, Number(storage.get("wqc-wallet", 0)) || 0); }
@@ -502,6 +550,7 @@ function answerQuestion(selected, auto = false) {
   state.locked = true;
   const question = state.questions[state.questionIndex], isCorrect = selected === question.correct;
   if (isCorrect) state.score += 1;
+  if (!auto) recordContinentAnswer(question.answerIso, isCorrect);
   [...els.answersGrid.querySelectorAll(".answer-button")].forEach((button) => {
     const value = decodeURIComponent(button.dataset.answer);
     button.disabled = true;
@@ -805,6 +854,7 @@ async function answerDuel(answer) {
   [...els.duelAnswers.querySelectorAll("button")].forEach((button) => { button.disabled = true; });
   try {
     const result = await api(`matches/${state.duelMatch.id}/answer`, { method: "POST", body: JSON.stringify({ answer }) });
+    recordContinentAnswer(state.duelMatch.question.answerIso, result.reveal.correct);
     [...els.duelAnswers.querySelectorAll("button")].forEach((button) => {
       const value = decodeURIComponent(button.dataset.duelAnswer);
       if (value === result.reveal.correctAnswer) button.classList.add("correct");
@@ -1026,7 +1076,7 @@ fetch("data/countries.csv")
   .then((text) => {
     state.countries = normalizeCountries(parseCSV(text));
     if (state.countries.length < 190) throw new Error("Incomplete country data");
-    migrateWallet(); renderRegions(); renderTypes(); renderChallengeTypes(); registerWebMCP();
+    migrateWallet(); renderRegions(); renderTypes(); renderChallengeTypes(); renderContinentProgress(); registerWebMCP();
   })
   .catch(() => els.dataError.classList.remove("hidden"));
 
