@@ -79,6 +79,8 @@ function isParticipant(row: MatchRow, profile: Profile) {
 function publicMatch(row: MatchRow, profile: Profile) {
   const isPlayer1 = row.player1_id === profile.id;
   const questions = parseQuestions(row);
+  const player1Answers = parseAnswers(row.player1_answers_json);
+  const player2Answers = parseAnswers(row.player2_answers_json);
   const question = row.status === "active" ? questions[row.question_index] : null;
   return {
     id: row.id,
@@ -95,6 +97,15 @@ function publicMatch(row: MatchRow, profile: Profile) {
     eraseAvailable: isPlayer1 ? !row.player1_erase_used : !row.player2_erase_used,
     winnerId: row.winner_id,
     question: question ? { prompt: question.prompt, options: question.options, kicker: question.kicker, index: row.question_index } : null,
+    review: row.status === "complete" ? questions.map((item, index) => ({
+      index,
+      prompt: item.prompt,
+      options: item.options,
+      kicker: item.kicker,
+      correctAnswer: item.correct,
+      player1Answer: player1Answers.find((answer) => answer.index === index)?.answer || null,
+      player2Answer: player2Answers.find((answer) => answer.index === index)?.answer || null,
+    })) : null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -174,6 +185,37 @@ async function declineMatch(id: string, profile: Profile) {
   ).bind(now, id, profile.id).run();
   if (!result.meta.changes) return json({ error: "Cette invitation n’est plus disponible." }, 409);
   return json({ message: "Invitation refusée." });
+}
+
+async function cancelMatch(id: string, profile: Profile) {
+  const now = new Date().toISOString();
+  const result = await getRawDb().prepare(
+    "UPDATE matches SET status = 'cancelled', phase = 'cancelled', turn_player_id = NULL, updated_at = ? WHERE id = ? AND status = 'pending' AND (player1_id = ? OR player2_id = ?)",
+  ).bind(now, id, profile.id, profile.id).run();
+  if (!result.meta.changes) return json({ error: "Cette demande n’est plus disponible." }, 409);
+  return json({ message: "Demande supprimée." });
+}
+
+async function rematchMatch(id: string, profile: Profile) {
+  const previous = await loadMatch(id);
+  if (!previous || !isParticipant(previous, profile) || previous.status !== "complete") return json({ error: "Ce match retour n’est pas disponible." }, 409);
+  const opponentId = previous.player1_id === profile.id ? previous.player2_id : previous.player1_id;
+  const opponentName = previous.player1_id === profile.id ? previous.player2_name : previous.player1_name;
+  const duplicate = await getRawDb().prepare(`
+    SELECT id FROM matches WHERE status IN ('pending','active')
+    AND ((player1_id = ? AND player2_id = ?) OR (player1_id = ? AND player2_id = ?)) LIMIT 1
+  `).bind(profile.id, opponentId, opponentId, profile.id).first<{ id: string }>();
+  if (duplicate) return json({ error: "Un défi est déjà en attente ou en cours avec ce joueur." }, 409);
+  const rematchId = crypto.randomUUID();
+  const now = new Date().toISOString();
+  const questions = generateDuelQuestions(previous.difficulty as Parameters<typeof generateDuelQuestions>[0]);
+  await getRawDb().prepare(`
+    INSERT INTO matches (id, player1_id, player2_id, difficulty, status, phase, turn_player_id, question_index,
+      questions_json, player1_answers_json, player2_answers_json, created_at, updated_at)
+    VALUES (?, ?, ?, ?, 'pending', 'awaiting_acceptance', ?, 0, ?, '[]', '[]', ?, ?)
+  `).bind(rematchId, profile.id, opponentId, previous.difficulty, opponentId, JSON.stringify(questions), now, now).run();
+  await sendGameNotification(opponentId, "Match retour WQC", `${profile.name} te propose un match retour.`, `/game.html?duel=${rematchId}`);
+  return json({ id: rematchId, message: `Match retour proposé à ${opponentName}.` }, 201);
 }
 
 async function getMatch(id: string, profile: Profile) {
@@ -317,6 +359,8 @@ async function handle(request: Request) {
     if (request.method === "GET" && parts[0] === "matches" && parts[1] && !parts[2]) return await getMatch(parts[1], profile);
     if (request.method === "POST" && parts[0] === "matches" && parts[2] === "accept") return await acceptMatch(parts[1], profile);
     if (request.method === "POST" && parts[0] === "matches" && parts[2] === "decline") return await declineMatch(parts[1], profile);
+    if (request.method === "POST" && parts[0] === "matches" && parts[2] === "cancel") return await cancelMatch(parts[1], profile);
+    if (request.method === "POST" && parts[0] === "matches" && parts[2] === "rematch") return await rematchMatch(parts[1], profile);
     if (request.method === "POST" && parts[0] === "matches" && parts[2] === "answer") return await answerMatch(request, parts[1], profile);
     if (request.method === "POST" && parts[0] === "matches" && parts[2] === "erase") return await eraseMatch(parts[1], profile);
     if (request.method === "GET" && parts[0] === "stats") return await stats(profile);

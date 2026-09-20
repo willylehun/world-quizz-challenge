@@ -13,7 +13,7 @@
     <link rel="icon" type="image/svg+xml" href="icons/icon.svg" />
     <link rel="apple-touch-icon" href="icons/icon-192.png" />
     <title>World Quizz Challenge</title>
-    <link rel="stylesheet" href="styles.css?v=8" />
+    <link rel="stylesheet" href="styles.css?v=9" />
   </head>
   <body>
     <div class="app-shell">
@@ -225,6 +225,41 @@
             <button type="button" data-action="duel-erase" id="duel-erase"><span class="joker-icon">−2</span><strong>Erase</strong><small>Une fois par duel</small></button>
           </div>
         </section>
+
+        <section class="screen duel-result-screen hidden" data-screen="duel-result">
+          <div class="result-card duel-result-card" id="duel-result-card">
+            <span class="duel-result-state" id="duel-result-state">Résultat</span>
+            <span class="eyebrow">Défi terminé</span>
+            <h2 id="duel-result-title">Match nul</h2>
+            <div class="duel-final-score" id="duel-final-score">0 – 0</div>
+            <p id="duel-result-message"></p>
+            <p class="form-message" id="duel-result-feedback" role="status"></p>
+            <div class="result-actions">
+              <button class="secondary-button" type="button" data-action="open-duel">Retour aux défis</button>
+              <button class="secondary-button" type="button" data-action="duel-review">Voir les 20 réponses</button>
+              <button class="primary-button" type="button" data-action="duel-rematch">Match retour</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="screen quiz-screen hidden" data-screen="duel-review">
+          <div class="quiz-header">
+            <button class="quit-button" type="button" data-action="duel-result" aria-label="Retour au résultat">←</button>
+            <div class="quiz-context"><span id="duel-review-context">Historique du défi</span><strong id="duel-review-progress">Question 1 / 20</strong></div>
+            <div class="duel-score"><span id="duel-review-player-score">0</span><small>–</small><span id="duel-review-opponent-score">0</span></div>
+          </div>
+          <div class="progress-track" aria-hidden="true"><div id="duel-review-progress-bar"></div></div>
+          <div class="question-panel">
+            <div class="question-kicker" id="duel-review-kicker">Défi WQC</div>
+            <h2 id="duel-review-question">Chargement…</h2>
+            <div class="answers-grid review-answers-grid" id="duel-review-answers"></div>
+            <div class="duel-review-legend" id="duel-review-legend"></div>
+            <div class="review-navigation">
+              <button class="secondary-button" type="button" data-action="duel-review-previous" id="duel-review-previous">← Précédente</button>
+              <button class="primary-button" type="button" data-action="duel-review-next" id="duel-review-next">Suivante →</button>
+            </div>
+          </div>
+        </section>
       </main>
     </div>
 
@@ -312,6 +347,6 @@
     <div id="data-error" class="data-error hidden" role="alert">
       Impossible de charger les questions. Recharge la page pour réessayer.
     </div>
-    <script src="app.js?v=8" defer></script>
+    <script src="app.js?v=9" defer></script>
   </body>
 </html>

@@ -2,11 +2,11 @@
   color-scheme: dark;
   --ink: #f5f8ff;
   --muted: #9bacbf;
-  --deep: #050d1a;
-  --navy: #071529;
-  --panel: #0c2039;
-  --panel-2: #102a48;
-  --line: rgba(184, 211, 236, 0.15);
+  --deep: #0a2340;
+  --navy: #10385e;
+  --panel: #154568;
+  --panel-2: #1b527a;
+  --line: rgba(198, 225, 247, 0.22);
   --teal: #2dd4bf;
   --teal-soft: rgba(45, 212, 191, 0.15);
   --gold: #f8c85a;
@@ -26,9 +26,11 @@ body {
   color: var(--ink);
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   background:
-    linear-gradient(120deg, rgba(45, 212, 191, 0.06), transparent 32%),
-    radial-gradient(circle at 82% 12%, rgba(33, 94, 148, 0.28), transparent 30%),
-    var(--deep);
+    radial-gradient(circle at 12% 14%, rgba(45, 212, 191, 0.20), transparent 27%),
+    radial-gradient(circle at 88% 10%, rgba(93, 167, 224, 0.35), transparent 32%),
+    radial-gradient(circle at 52% 92%, rgba(100, 72, 170, 0.20), transparent 30%),
+    linear-gradient(145deg, #123b60 0%, var(--deep) 52%, #0d3153 100%);
+  background-attachment: fixed;
 }
 
 button { font: inherit; }
@@ -392,11 +394,12 @@ main { flex: 1; display: flex; }
 .primary-button { background: var(--teal); color: #04201d; border: 1px solid var(--teal); }
 .secondary-button { background: transparent; color: var(--ink); border: 1px solid var(--line); }
 .danger-button { background: var(--red); color: #2a0710; border: 1px solid var(--red); }
+.danger-outline { color: #ffd3da; border-color: rgba(251,113,133,.55); }
 .primary-button:disabled { opacity: .38; cursor: not-allowed; }
 
 dialog {
   color: var(--ink);
-  background: linear-gradient(145deg, #102a48, #071529);
+  background: linear-gradient(145deg, #1b527a, #0c2d4d);
   border: 1px solid var(--line);
   box-shadow: var(--shadow);
 }
@@ -472,6 +475,28 @@ dialog::backdrop { background: rgba(1, 6, 14, .78); backdrop-filter: blur(6px); 
 .duel-reveal span { color: var(--muted); font-size: .82rem; }
 #duel-next { display: block; margin: 20px auto 0; }
 .duel-joker-dock { grid-template-columns: minmax(190px, 290px); justify-content: center; }
+.duel-result-screen { display: grid; place-items: center; padding: 36px 0; }
+.duel-result-card { position: relative; overflow: hidden; }
+.duel-result-card::before { content: ""; position: absolute; width: 210px; height: 210px; border-radius: 50%; top: -130px; right: -80px; background: rgba(45,212,191,.13); }
+.duel-result-state { display: grid; place-items: center; width: 112px; min-height: 112px; margin: 0 auto 28px; padding: 12px; border: 7px solid var(--gold); border-radius: 50%; color: var(--gold); font-weight: 950; font-size: 1.08rem; text-transform: uppercase; letter-spacing: .05em; }
+.duel-result-card.won .duel-result-state { color: var(--green); border-color: var(--green); box-shadow: 0 0 38px rgba(66,211,146,.2); }
+.duel-result-card.lost .duel-result-state { color: var(--red); border-color: var(--red); box-shadow: 0 0 38px rgba(251,113,133,.17); }
+.duel-result-card.draw .duel-result-state { color: var(--gold); border-color: var(--gold); box-shadow: 0 0 38px rgba(248,200,90,.17); }
+.duel-final-score { margin: 24px auto 2px; color: var(--gold); font-size: clamp(2.2rem, 7vw, 4.2rem); font-weight: 950; letter-spacing: -.06em; }
+.review-answers-grid .answer-button { cursor: default; grid-template-columns: 30px 1fr auto; }
+.review-answers-grid .answer-button:hover { transform: none; }
+.review-answers-grid .opponent-choice { box-shadow: inset 0 0 0 2px rgba(248,200,90,.58); }
+.answer-badges { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 5px; }
+.answer-badge { padding: 4px 7px; border-radius: 999px; font-size: .67rem; font-weight: 900; white-space: nowrap; }
+.answer-badge.mine { color: #04201d; background: var(--teal); }
+.answer-badge.opponent { color: #332400; background: var(--gold); }
+.duel-review-legend { margin: 18px auto 0; max-width: 740px; display: flex; flex-wrap: wrap; justify-content: center; gap: 9px; }
+.duel-review-legend > span { padding: 9px 12px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); font-size: .8rem; background: rgba(255,255,255,.045); }
+.duel-review-legend strong { color: var(--ink); }
+.legend-dot { display: inline-block; width: 8px; height: 8px; margin-right: 6px; border-radius: 50%; }
+.correct-dot { background: var(--green); }
+.review-navigation { display: flex; justify-content: center; gap: 10px; margin-top: 25px; }
+.review-navigation button:disabled { opacity: .35; cursor: not-allowed; }
 .profile-dialog { width: min(480px, calc(100% - 28px)); border-radius: 24px; padding: 28px; }
 .profile-dialog > .brand-mark { margin-bottom: 24px; }
 .profile-dialog > .eyebrow { display: block; margin: 18px 0 6px; }
@@ -542,6 +567,9 @@ dialog::backdrop { background: rgba(1, 6, 14, .78); backdrop-filter: blur(6px); 
   .duel-list-card { align-items: flex-start; flex-direction: column; }
   .duel-difficulties { grid-template-columns: 1fr; }
   .duel-score-overview { grid-template-columns: repeat(3, 1fr); }
+  .review-answers-grid .answer-button { grid-template-columns: 26px 1fr; }
+  .answer-badges { grid-column: 2; justify-content: flex-start; }
+  .review-navigation { display: grid; grid-template-columns: 1fr 1fr; }
 }
 
 @media (prefers-reduced-motion: reduce) {

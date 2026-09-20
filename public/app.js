@@ -30,6 +30,24 @@ const FIELD_LABELS = {
   leader: "Qui est le dirigeant effectif correspondant ?",
 };
 
+const CAPITAL_TRAPS = {
+  ES: ["Rome", "Barcelone", "Séville"],
+  CI: ["Abidjan", "Bouaké", "Accra"],
+  ZA: ["Le Cap", "Bloemfontein", "Johannesburg"],
+  TZ: ["Dar es Salaam", "Arusha", "Nairobi"],
+  NG: ["Lagos", "Kano", "Accra"],
+  TR: ["Istanbul", "Izmir", "Athènes"],
+  BR: ["Rio de Janeiro", "São Paulo", "Buenos Aires"],
+  AU: ["Sydney", "Melbourne", "Auckland"],
+  CA: ["Toronto", "Montréal", "Vancouver"],
+  US: ["New York", "Los Angeles", "Chicago"],
+  MA: ["Casablanca", "Marrakech", "Tunis"],
+  CH: ["Zurich", "Genève", "Bâle"],
+  LK: ["Colombo", "Kandy", "Malé"],
+  NZ: ["Auckland", "Christchurch", "Sydney"],
+  AE: ["Dubaï", "Charjah", "Doha"],
+};
+
 const EASY_RANK = [
   "FR","US","GB","DE","IT","ES","PT","BE","CH","CA","BR","JP","CN","IN","RU","AU","MX","AR","EG","ZA",
   "NL","IE","AT","GR","SE","NO","DK","FI","PL","UA","TR","MA","DZ","TN","SN","CI","NG","KE","SA","AE",
@@ -49,7 +67,7 @@ const state = {
   challengeId: null, tier: null, pendingChallengeId: null,
   questions: [], questionIndex: 0, score: 0, locked: false, rewardEarned: 0,
   jokers: { switch: true, correct: true, erase: true },
-  profile: null, profileToken: null, duelMatch: null, duelLocked: false, duelPoll: null,
+  profile: null, profileToken: null, duelMatch: null, duelLocked: false, duelPoll: null, duelReviewIndex: 0,
 };
 
 let deferredInstallPrompt = null;
@@ -100,6 +118,15 @@ const els = {
   duelQuestion: document.querySelector("#duel-question"), duelAnswers: document.querySelector("#duel-answers"),
   duelFeedback: document.querySelector("#duel-feedback"), duelReveal: document.querySelector("#duel-reveal"),
   duelNext: document.querySelector("#duel-next"), duelErase: document.querySelector("#duel-erase"),
+  duelResultCard: document.querySelector("#duel-result-card"), duelResultState: document.querySelector("#duel-result-state"),
+  duelResultTitle: document.querySelector("#duel-result-title"), duelFinalScore: document.querySelector("#duel-final-score"),
+  duelResultMessage: document.querySelector("#duel-result-message"), duelResultFeedback: document.querySelector("#duel-result-feedback"),
+  duelReviewContext: document.querySelector("#duel-review-context"), duelReviewProgress: document.querySelector("#duel-review-progress"),
+  duelReviewProgressBar: document.querySelector("#duel-review-progress-bar"), duelReviewPlayerScore: document.querySelector("#duel-review-player-score"),
+  duelReviewOpponentScore: document.querySelector("#duel-review-opponent-score"), duelReviewKicker: document.querySelector("#duel-review-kicker"),
+  duelReviewQuestion: document.querySelector("#duel-review-question"), duelReviewAnswers: document.querySelector("#duel-review-answers"),
+  duelReviewLegend: document.querySelector("#duel-review-legend"), duelReviewPrevious: document.querySelector("#duel-review-previous"),
+  duelReviewNext: document.querySelector("#duel-review-next"),
 };
 
 function parseCSV(text) {
@@ -211,8 +238,15 @@ function makeQuestion(pool, type, usedIso = new Set(), avoidedIso = new Set()) {
   if (!source.length) source = pool.filter((c) => !usedIso.has(c.iso));
   if (!source.length) source = pool;
   const answer = source[Math.floor(Math.random() * source.length)];
-  const wrongPool = pool.filter((c) => c.iso !== answer.iso && valueFor(c, type.to) !== valueFor(answer, type.to));
-  const wrongs = shuffle(wrongPool).slice(0, 3).map((c) => valueFor(c, type.to));
+  const nearby = state.countries.filter((c) => c.iso !== answer.iso && c.continent === answer.continent);
+  const allOthers = state.countries.filter((c) => c.iso !== answer.iso);
+  const wrongPool = shuffle([...nearby, ...allOthers]).filter((country, index, items) =>
+    valueFor(country, type.to) !== valueFor(answer, type.to)
+    && items.findIndex((item) => valueFor(item, type.to) === valueFor(country, type.to)) === index);
+  const traps = type.to === "capital" ? CAPITAL_TRAPS[answer.iso] || [] : [];
+  const wrongs = [...traps, ...wrongPool.map((c) => valueFor(c, type.to))]
+    .filter((value, index, items) => value !== valueFor(answer, type.to) && items.indexOf(value) === index)
+    .slice(0, 3);
   return {
     answerIso: answer.iso, prompt: valueFor(answer, type.from), correct: valueFor(answer, type.to),
     options: shuffle([valueFor(answer, type.to), ...wrongs]), kicker: FIELD_LABELS[type.to], typeId: type.id, context: type,
@@ -559,9 +593,10 @@ const DUEL_LABELS = { easy: "Facile", medium: "Moyen", hard: "Difficile", ultima
 
 function duelCard(match, kind) {
   const score = match.isPlayer1 ? `${match.player1.score}–${match.player2.score}` : `${match.player2.score}–${match.player1.score}`;
-  let actions = `<button class="secondary-button" type="button" data-open-duel="${match.id}">Ouvrir</button>`;
-  if (kind === "invitation") actions = `<button class="secondary-button" type="button" data-decline-duel="${match.id}">Refuser</button><button class="primary-button" type="button" data-accept-duel="${match.id}">Accepter</button>`;
-  const status = kind === "turn" ? "À toi" : kind === "waiting" ? "En attente" : kind === "invitation" ? "Invitation" : score;
+  let actions = `<button class="secondary-button" type="button" data-open-duel="${match.id}">${kind === "complete" ? "Résultat et réponses" : "Ouvrir"}</button>`;
+  if (kind === "invitation") actions = `<button class="secondary-button" type="button" data-cancel-duel="${match.id}">Supprimer</button><button class="primary-button" type="button" data-accept-duel="${match.id}">Accepter</button>`;
+  if (kind === "sent") actions = `<button class="secondary-button danger-outline" type="button" data-cancel-duel="${match.id}">Supprimer la demande</button>`;
+  const status = kind === "turn" ? "À toi" : kind === "waiting" ? "En attente" : kind === "sent" ? "Invitation envoyée" : kind === "invitation" ? "Invitation" : score;
   return `<article class="duel-list-card"><div><span>${escapeHTML(DUEL_LABELS[match.difficulty] || match.difficulty)} • ${status}</span><strong>${escapeHTML(match.opponentName)}</strong></div><div class="duel-card-actions">${actions}</div></article>`;
 }
 
@@ -578,10 +613,11 @@ async function openDuelHome() {
     const invitations = matches.filter((match) => match.status === "pending" && !match.isPlayer1);
     const sent = matches.filter((match) => match.status === "pending" && match.isPlayer1);
     const turn = matches.filter((match) => match.status === "active" && match.isTurn);
-    const waiting = [...sent, ...matches.filter((match) => match.status === "active" && !match.isTurn)];
+    const waiting = matches.filter((match) => match.status === "active" && !match.isTurn);
     const completed = matches.filter((match) => match.status === "complete").slice(0, 10);
     els.duelLists.innerHTML = [
       duelSection("Invitations", invitations, "invitation", "Aucune invitation reçue."),
+      duelSection("Demandes envoyées", sent, "sent", "Aucune demande en attente."),
       duelSection("À toi de jouer", turn, "turn", "Aucun tour en attente."),
       duelSection("En attente", waiting, "waiting", "Aucun défi en attente."),
       duelSection("Terminés", completed, "complete", "Aucun duel terminé."),
@@ -616,12 +652,14 @@ function duelDisplayIndex(match) { return match.questionIndex + 1; }
 
 async function openDuelMatch(id) {
   const { match } = await api(`matches/${id}`);
-  state.duelMatch = match; state.duelLocked = false; showScreen("duel-game"); renderDuelMatch();
+  state.duelMatch = match; state.duelLocked = false; renderDuelMatch();
   if (!match.isTurn && match.status === "active") state.duelPoll = setInterval(() => { if (state.screen === "duel-game") openDuelMatch(id); }, 30000);
 }
 
 function renderDuelMatch() {
   const match = state.duelMatch;
+  if (match.status === "complete") { renderDuelResult(); return; }
+  showScreen("duel-game");
   const me = match.isPlayer1 ? match.player1 : match.player2;
   const opponent = match.isPlayer1 ? match.player2 : match.player1;
   els.duelContext.textContent = `${me.name} vs ${opponent.name} • ${DUEL_LABELS[match.difficulty]}`;
@@ -634,16 +672,60 @@ function renderDuelMatch() {
   if (match.status === "pending") {
     els.duelKicker.textContent = "Invitation envoyée"; els.duelQuestion.textContent = `En attente de la réponse de ${opponent.name}.`; return;
   }
-  if (match.status === "complete") {
-    const winner = match.winnerId ? (match.winnerId === me.id ? "Tu as gagné !" : `${opponent.name} gagne ce duel.`) : "Match nul !";
-    els.duelKicker.textContent = `Score final ${me.score}–${opponent.score}`; els.duelQuestion.textContent = winner;
-    els.duelNext.textContent = "Retour aux défis"; els.duelNext.classList.remove("hidden"); return;
-  }
   if (!match.isTurn) {
     els.duelKicker.textContent = "Tour de ton adversaire"; els.duelQuestion.textContent = `${opponent.name} doit maintenant répondre. Tu recevras une notification quand ce sera à toi.`; return;
   }
   els.duelKicker.textContent = match.question.kicker; els.duelQuestion.textContent = match.question.prompt;
   els.duelAnswers.innerHTML = match.question.options.map((option, index) => `<button class="answer-button" type="button" data-duel-answer="${encodeURIComponent(option)}"><span class="answer-index">${index + 1}</span><span class="answer-text">${escapeHTML(option)}</span></button>`).join("");
+}
+
+function renderDuelResult() {
+  const match = state.duelMatch;
+  if (!match) return;
+  const me = match.isPlayer1 ? match.player1 : match.player2;
+  const opponent = match.isPlayer1 ? match.player2 : match.player1;
+  const result = !match.winnerId ? "draw" : match.winnerId === me.id ? "won" : "lost";
+  const labels = { won: "Gagné", lost: "Perdu", draw: "Match nul" };
+  els.duelResultCard.classList.remove("won", "lost", "draw"); els.duelResultCard.classList.add(result);
+  els.duelResultState.textContent = labels[result]; els.duelResultTitle.textContent = labels[result];
+  els.duelFinalScore.textContent = `${me.score} – ${opponent.score}`;
+  els.duelResultMessage.textContent = `${me.name} contre ${opponent.name} • ${DUEL_LABELS[match.difficulty]}`;
+  els.duelResultFeedback.textContent = "";
+  showScreen("duel-result");
+}
+
+function renderDuelReview() {
+  const match = state.duelMatch;
+  if (!match?.review?.length) { renderDuelResult(); return; }
+  const me = match.isPlayer1 ? match.player1 : match.player2;
+  const opponent = match.isPlayer1 ? match.player2 : match.player1;
+  const item = match.review[state.duelReviewIndex];
+  const myAnswer = match.isPlayer1 ? item.player1Answer : item.player2Answer;
+  const opponentAnswer = match.isPlayer1 ? item.player2Answer : item.player1Answer;
+  els.duelReviewContext.textContent = `${me.name} vs ${opponent.name} • Réponses`;
+  els.duelReviewProgress.textContent = `Question ${state.duelReviewIndex + 1} / ${match.review.length}`;
+  els.duelReviewProgressBar.style.width = `${((state.duelReviewIndex + 1) / match.review.length) * 100}%`;
+  els.duelReviewPlayerScore.textContent = String(me.score); els.duelReviewOpponentScore.textContent = String(opponent.score);
+  els.duelReviewKicker.textContent = item.kicker; els.duelReviewQuestion.textContent = item.prompt;
+  els.duelReviewAnswers.innerHTML = item.options.map((option, index) => {
+    const classes = ["answer-button", option === item.correctAnswer ? "correct" : "", option === myAnswer && option !== item.correctAnswer ? "wrong" : "", option === opponentAnswer ? "opponent-choice" : ""].filter(Boolean).join(" ");
+    const badges = `${option === myAnswer ? '<small class="answer-badge mine">Toi</small>' : ""}${option === opponentAnswer ? `<small class="answer-badge opponent">${escapeHTML(opponent.name)}</small>` : ""}`;
+    return `<div class="${classes}"><span class="answer-index">${index + 1}</span><span class="answer-text">${escapeHTML(option)}</span><span class="answer-badges">${badges}</span></div>`;
+  }).join("");
+  els.duelReviewLegend.innerHTML = `<span><i class="legend-dot correct-dot"></i>Bonne réponse : <strong>${escapeHTML(item.correctAnswer)}</strong></span><span>Ta réponse : <strong>${escapeHTML(myAnswer || "Aucune")}</strong></span><span>${escapeHTML(opponent.name)} : <strong>${escapeHTML(opponentAnswer || "Aucune")}</strong></span>`;
+  els.duelReviewPrevious.disabled = state.duelReviewIndex === 0;
+  els.duelReviewNext.textContent = state.duelReviewIndex === match.review.length - 1 ? "Retour au résultat" : "Suivante →";
+  showScreen("duel-review");
+}
+
+async function rematchDuel() {
+  if (!state.duelMatch) return;
+  const button = document.querySelector('[data-action="duel-rematch"]');
+  button.disabled = true; els.duelResultFeedback.textContent = "Envoi du match retour…";
+  try {
+    const result = await api(`matches/${state.duelMatch.id}/rematch`, { method: "POST" });
+    await openDuelHome(); els.duelFormMessage.textContent = result.message;
+  } catch (error) { els.duelResultFeedback.textContent = error.message; button.disabled = false; }
 }
 
 async function answerDuel(answer) {
@@ -669,7 +751,7 @@ async function answerDuel(answer) {
 
 async function nextDuelQuestion() {
   if (!state.duelMatch) return;
-  if (state.duelMatch.status === "complete") { await openDuelHome(); return; }
+  if (state.duelMatch.status === "complete") { renderDuelResult(); return; }
   try { await openDuelMatch(state.duelMatch.id); } catch { await openDuelHome(); }
 }
 
@@ -751,6 +833,14 @@ function handleAction(action) {
   if (action === "enable-notifications") enableNotifications();
   if (action === "duel-next") nextDuelQuestion();
   if (action === "duel-erase") eraseDuel();
+  if (action === "duel-result") renderDuelResult();
+  if (action === "duel-review") { state.duelReviewIndex = 0; renderDuelReview(); }
+  if (action === "duel-review-previous") { state.duelReviewIndex = Math.max(0, state.duelReviewIndex - 1); renderDuelReview(); }
+  if (action === "duel-review-next") {
+    if (state.duelReviewIndex >= (state.duelMatch?.review?.length || 1) - 1) renderDuelResult();
+    else { state.duelReviewIndex += 1; renderDuelReview(); }
+  }
+  if (action === "duel-rematch") rematchDuel();
   if (action === "scores") showScores("classic");
   if (action === "close-scores") els.scoresDialog.close();
   if (action === "retry-training") startTraining();
@@ -811,8 +901,8 @@ document.addEventListener("click", (event) => {
   if (openDuelButton) { openDuelMatch(openDuelButton.dataset.openDuel).catch((error) => { els.duelFormMessage.textContent = error.message; }); return; }
   const acceptDuelButton = event.target.closest("[data-accept-duel]");
   if (acceptDuelButton) { changeInvitation(acceptDuelButton.dataset.acceptDuel, "accept"); return; }
-  const declineDuelButton = event.target.closest("[data-decline-duel]");
-  if (declineDuelButton) { changeInvitation(declineDuelButton.dataset.declineDuel, "decline"); return; }
+  const cancelDuelButton = event.target.closest("[data-cancel-duel]");
+  if (cancelDuelButton) { changeInvitation(cancelDuelButton.dataset.cancelDuel, "cancel"); return; }
   const jokerButton = event.target.closest("[data-joker]");
   if (jokerButton) { useJoker(jokerButton.dataset.joker); return; }
   const nextButton = event.target.closest("[data-next-level]");

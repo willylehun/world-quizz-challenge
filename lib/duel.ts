@@ -7,6 +7,7 @@ export type DuelQuestion = {
   options: string[];
   kicker: string;
   answerIso: string;
+  difficulty: DuelDifficulty;
 };
 
 const EASY_RANK = [
@@ -34,6 +35,24 @@ const LABELS = {
   leader: "Qui est le dirigeant effectif correspondant ?",
 } as const;
 
+const CAPITAL_TRAPS: Record<string, string[]> = {
+  ES: ["Rome", "Barcelone", "Séville"],
+  CI: ["Abidjan", "Bouaké", "Accra"],
+  ZA: ["Le Cap", "Bloemfontein", "Johannesburg"],
+  TZ: ["Dar es Salaam", "Arusha", "Mwanza"],
+  NG: ["Lagos", "Kano", "Ibadan"],
+  TR: ["Istanbul", "Izmir", "Antalya"],
+  BR: ["Rio de Janeiro", "São Paulo", "Salvador"],
+  AU: ["Sydney", "Melbourne", "Brisbane"],
+  CA: ["Toronto", "Montréal", "Vancouver"],
+  US: ["New York", "Los Angeles", "Chicago"],
+  MA: ["Casablanca", "Marrakech", "Fès"],
+  CH: ["Zurich", "Genève", "Bâle"],
+  LK: ["Colombo", "Kandy", "Galle"],
+  NZ: ["Auckland", "Christchurch", "Hamilton"],
+  AE: ["Dubaï", "Charjah", "Al-Aïn"],
+};
+
 function shuffle<T>(items: readonly T[]): T[] {
   const copy = [...items];
   for (let i = copy.length - 1; i > 0; i -= 1) {
@@ -56,24 +75,47 @@ function rangeForDifficulty(difficulty: DuelDifficulty): [number, number] {
   return [135, EASY_RANK.length];
 }
 
-export function generateDuelQuestions(difficulty: DuelDifficulty): DuelQuestion[] {
+function poolForDifficulty(difficulty: DuelDifficulty) {
   const [start, end] = rangeForDifficulty(difficulty);
   const allowed = new Set(EASY_RANK.slice(start, end));
-  let pool = COUNTRIES.filter((country) => allowed.has(country.iso as (typeof EASY_RANK)[number]));
-  if (pool.length < 24) pool = [...COUNTRIES];
-  const countries = shuffle(pool).slice(0, 20);
+  const pool = COUNTRIES.filter((country) => allowed.has(country.iso as (typeof EASY_RANK)[number]));
+  return pool.length >= 20 ? pool : [...COUNTRIES];
+}
+
+function plausibleWrongs(country: (typeof COUNTRIES)[number], to: "country" | "capital" | "leader", pool: typeof COUNTRIES) {
+  const sameContinent = pool.filter((item) => item.iso !== country.iso && item.continent === country.continent);
+  const allOthers = pool.filter((item) => item.iso !== country.iso);
+  const candidates = shuffle([...sameContinent, ...allOthers]).filter(
+    (item, index, list) => list.findIndex((candidate) => valueFor(candidate, to) === valueFor(item, to)) === index,
+  );
+  if (to !== "capital") return candidates.slice(0, 3).map((item) => valueFor(item, to));
+  const traps = shuffle(CAPITAL_TRAPS[country.iso] || []);
+  const capitals = candidates.map((item) => item.capital);
+  return [...traps, ...capitals].filter((value, index, list) => value !== country.capital && list.indexOf(value) === index).slice(0, 3);
+}
+
+export function generateDuelQuestions(difficulty: DuelDifficulty): DuelQuestion[] {
+  const difficulties: DuelDifficulty[] = ["easy", "medium", "hard", "ultimate"];
+  const schedule = shuffle([
+    ...Array.from({ length: 17 }, () => difficulty),
+    ...difficulties.filter((item) => item !== difficulty),
+  ]);
+  const used = new Set<string>();
   const typePool = difficulty === "easy" ? QUESTION_TYPES.slice(0, 3) : QUESTION_TYPES;
-  return countries.map((country, index) => {
+  return schedule.map((questionDifficulty, index) => {
+    const pool = poolForDifficulty(questionDifficulty);
+    const available = pool.filter((country) => !used.has(country.iso));
+    const country = shuffle(available.length ? available : pool)[0];
+    used.add(country.iso);
     const type = typePool[index % typePool.length];
-    const wrongs = shuffle(pool.filter((item) => item.iso !== country.iso && valueFor(item, type.to) !== valueFor(country, type.to)))
-      .slice(0, 3)
-      .map((item) => valueFor(item, type.to));
+    const wrongs = plausibleWrongs(country, type.to, COUNTRIES);
     return {
       prompt: valueFor(country, type.from),
       correct: valueFor(country, type.to),
       options: shuffle([valueFor(country, type.to), ...wrongs]),
       kicker: LABELS[type.to],
       answerIso: country.iso,
+      difficulty: questionDifficulty,
     };
   });
 }
