@@ -47,7 +47,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 3px; }
 }
 
 .topbar {
-  height: 72px;
+  min-height: 84px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -65,7 +65,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 3px; }
   cursor: pointer;
 }
 
-.brand-logo { width: 54px; height: 54px; display: block; border-radius: 13px; box-shadow: 0 8px 24px rgba(0,0,0,.34); }
+.brand-logo { width: 66px; height: 66px; display: block; flex: 0 0 auto; border-radius: 16px; box-shadow: 0 10px 28px rgba(0,0,0,.4); }
 
 .brand-name { font-weight: 750; letter-spacing: -0.02em; }
 
@@ -493,7 +493,17 @@ dialog::backdrop { background: rgba(1, 6, 14, .78); backdrop-filter: blur(6px); 
 .review-navigation { display: flex; justify-content: center; gap: 10px; margin-top: 25px; }
 .review-navigation button:disabled { opacity: .35; cursor: not-allowed; }
 .profile-dialog { width: min(480px, calc(100% - 28px)); border-radius: 24px; padding: 28px; }
-.profile-dialog > .profile-logo { width: 78px; height: 78px; margin-bottom: 24px; border-radius: 20px; }
+#profile-setup-dialog[open] { width: 100vw; max-width: none; height: 100dvh; max-height: none; margin: 0; padding: max(24px, env(safe-area-inset-top)) 18px max(24px, env(safe-area-inset-bottom)); border: 0; border-radius: 0; display: grid; place-items: center; overflow-y: auto; background: radial-gradient(circle at 50% 18%, rgba(45,107,145,.42), transparent 30%), radial-gradient(circle at 18% 88%, rgba(255,51,71,.13), transparent 27%), linear-gradient(155deg, #07182a, #010205 62%); }
+#profile-setup-dialog::backdrop { background: #010205; }
+.profile-launch-card { position: relative; width: min(540px, 100%); padding: clamp(28px, 6vw, 48px); text-align: center; border: 1px solid rgba(255,255,255,.17); border-radius: 8px 38px 8px 38px; background: linear-gradient(150deg, rgba(21,69,104,.78), rgba(1,2,5,.94)); box-shadow: 0 32px 100px rgba(0,0,0,.55); overflow: hidden; }
+.profile-launch-card::before { content: ""; position: absolute; width: 210px; height: 210px; top: -145px; right: -95px; border: 24px solid rgba(255,214,92,.08); border-radius: 50%; }
+.profile-launch-card .profile-logo { width: 140px; height: 140px; margin: 0 auto 18px; border-radius: 31px; box-shadow: 0 22px 58px rgba(0,0,0,.55); }
+.profile-launch-name { display: block; margin-bottom: 30px; color: var(--ink); font-size: 1.05rem; letter-spacing: .08em; text-transform: uppercase; }
+.profile-launch-card > .eyebrow { display: block; margin: 0 0 8px; }
+.profile-launch-card h2 { font-size: clamp(2rem, 7vw, 3rem); }
+.profile-launch-card > p { max-width: 440px; margin: 18px auto 0; }
+.profile-launch-card form { text-align: left; }
+.profile-launch-card form .primary-button { width: 100%; margin-top: 4px; }
 .profile-dialog > .eyebrow { display: block; margin: 18px 0 6px; }
 .profile-dialog h2 { margin: 0; font-size: 2rem; }
 .profile-dialog p, .privacy-note { color: var(--muted); line-height: 1.5; }
@@ -514,9 +524,12 @@ dialog::backdrop { background: rgba(1, 6, 14, .78); backdrop-filter: blur(6px); 
 
 @media (max-width: 620px) {
   .app-shell { padding-left: 16px; padding-right: 16px; }
-  .topbar { height: 64px; }
+  .topbar { min-height: 72px; }
   .brand-name { display: none; }
-  .brand-logo { width: 46px; height: 46px; border-radius: 11px; }
+  .brand-logo { width: 56px; height: 56px; border-radius: 14px; }
+  .profile-launch-card { padding: 28px 20px; }
+  .profile-launch-card .profile-logo { width: 116px; height: 116px; border-radius: 27px; }
+  .profile-launch-name { margin-bottom: 24px; font-size: .88rem; }
   .score-button span:last-child,
   .install-button span:last-child,
   .reset-button span:last-child { display: none; }

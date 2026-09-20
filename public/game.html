@@ -3,23 +3,23 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#071529" />
+    <meta name="theme-color" content="#010205" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="WQC" />
     <meta name="description" content="World Quizz Challenge : 100 niveaux, entraînement et défis pour tester ses connaissances des pays, capitales et dirigeants." />
-    <link rel="manifest" href="manifest.webmanifest" />
-    <link rel="icon" type="image/svg+xml" href="icons/icon.svg" />
-    <link rel="apple-touch-icon" href="icons/icon-192.png" />
+    <link rel="manifest" href="manifest.webmanifest?v=12" />
+    <link rel="icon" type="image/svg+xml" href="icons/wqc-logo.svg?v=12" />
+    <link rel="apple-touch-icon" href="icons/wqc-logo-192.png" />
     <title>World Quizz Challenge</title>
-    <link rel="stylesheet" href="styles.css?v=11" />
+    <link rel="stylesheet" href="styles.css?v=12" />
   </head>
   <body>
     <div class="app-shell">
       <header class="topbar">
         <button class="brand" type="button" data-action="home" aria-label="Retour au menu principal">
-          <img class="brand-logo" src="icons/icon.svg" alt="" />
+          <img class="brand-logo" src="icons/wqc-logo.svg" alt="" />
           <span class="brand-name">World Quizz Challenge</span>
         </button>
         <div class="topbar-actions">
@@ -299,17 +299,20 @@
     </dialog>
 
     <dialog id="profile-setup-dialog" class="profile-dialog" data-locked="true">
-      <img class="brand-logo profile-logo" src="icons/icon.svg" alt="Logo WQC" />
-      <span class="eyebrow">Premier lancement</span>
-      <h2>Crée ton profil de joueur</h2>
-      <p>Aucun compte externe, aucun e-mail : choisis simplement un pseudo unique pour défier tes amis.</p>
-      <form id="profile-form">
-        <label for="new-profile-name">Ton pseudo WQC</label>
-        <input id="new-profile-name" name="name" minlength="3" maxlength="20" required autocomplete="nickname" placeholder="3 à 20 caractères" />
-        <button class="primary-button" type="submit">Créer mon profil</button>
-        <p class="form-message" id="profile-form-message" role="status"></p>
-      </form>
-      <small class="privacy-note">Ce profil est conservé sur cet appareil. Garde les données du navigateur pour ne pas perdre l’accès.</small>
+      <div class="profile-launch-card">
+        <img class="brand-logo profile-logo" src="icons/wqc-logo.svg" alt="Logo WQC" />
+        <strong class="profile-launch-name">World Quizz Challenge</strong>
+        <span class="eyebrow">Premier lancement</span>
+        <h2>Crée ton profil de joueur</h2>
+        <p>Aucun compte externe, aucun e-mail : choisis simplement un pseudo unique pour défier tes amis.</p>
+        <form id="profile-form">
+          <label for="new-profile-name">Ton pseudo WQC</label>
+          <input id="new-profile-name" name="name" minlength="3" maxlength="20" required autocomplete="nickname" placeholder="3 à 20 caractères" />
+          <button class="primary-button" type="submit">Créer mon profil</button>
+          <p class="form-message" id="profile-form-message" role="status"></p>
+        </form>
+        <small class="privacy-note">Ce profil est conservé sur cet appareil. Garde les données du navigateur pour ne pas perdre l’accès.</small>
+      </div>
     </dialog>
 
     <dialog id="profile-dialog" class="profile-dialog">
@@ -350,6 +353,6 @@
     <div id="data-error" class="data-error hidden" role="alert">
       Impossible de charger les questions. Recharge la page pour réessayer.
     </div>
-    <script src="app.js?v=11" defer></script>
+    <script src="app.js?v=12" defer></script>
   </body>
 </html>

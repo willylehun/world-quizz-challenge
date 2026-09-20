@@ -1,16 +1,16 @@
 "use strict";
 
-const CACHE_NAME = "wqc-v11";
+const CACHE_NAME = "wqc-v12";
 const BASE_URL = new URL("./", self.location.href);
 const APP_SHELL = [
   "./",
   "game.html",
-  "styles.css?v=11",
-  "app.js?v=11",
-  "manifest.webmanifest",
-  "icons/icon.svg",
-  "icons/icon-192.png",
-  "icons/icon-512.png",
+  "styles.css?v=12",
+  "app.js?v=12",
+  "manifest.webmanifest?v=12",
+  "icons/wqc-logo.svg",
+  "icons/wqc-logo-192.png",
+  "icons/wqc-logo-512.png",
   "data/countries.csv",
 ].map((path) => new URL(path, BASE_URL).href);
 
@@ -73,8 +73,8 @@ self.addEventListener("push", (event) => {
   try { data = { ...data, ...event.data.json() }; } catch { /* Notification par défaut. */ }
   event.waitUntil(self.registration.showNotification(data.title, {
     body: data.body,
-    icon: new URL("icons/icon-192.png", BASE_URL).href,
-    badge: new URL("icons/icon-192.png", BASE_URL).href,
+    icon: new URL("icons/wqc-logo-192.png", BASE_URL).href,
+    badge: new URL("icons/wqc-logo-192.png", BASE_URL).href,
     data: { url: data.url || "./game.html" },
     tag: "wqc-turn",
   }));
