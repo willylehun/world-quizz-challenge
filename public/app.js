@@ -31,7 +31,14 @@ const FIELD_LABELS = {
 };
 
 const CAPITAL_TRAPS = {
+  FR: ["Lyon", "Marseille", "Bordeaux"],
+  GB: ["Manchester", "Birmingham", "Édimbourg"],
+  DE: ["Francfort", "Munich", "Hambourg"],
+  IT: ["Milan", "Naples", "Turin"],
   ES: ["Rome", "Barcelone", "Séville"],
+  PT: ["Porto", "Braga", "Faro"],
+  BE: ["Anvers", "Bruges", "Liège"],
+  NL: ["La Haye", "Rotterdam", "Utrecht"],
   CI: ["Abidjan", "Bouaké", "Accra"],
   ZA: ["Le Cap", "Bloemfontein", "Johannesburg"],
   TZ: ["Dar es Salaam", "Arusha", "Nairobi"],
@@ -41,11 +48,75 @@ const CAPITAL_TRAPS = {
   AU: ["Sydney", "Melbourne", "Auckland"],
   CA: ["Toronto", "Montréal", "Vancouver"],
   US: ["New York", "Los Angeles", "Chicago"],
+  MX: ["Guadalajara", "Monterrey", "Cancún"],
+  AR: ["Córdoba", "Rosario", "Mendoza"],
+  EG: ["Alexandrie", "Louxor", "Gizeh"],
+  JP: ["Kyoto", "Osaka", "Yokohama"],
+  CN: ["Shanghai", "Hong Kong", "Canton"],
+  IN: ["Mumbai", "Calcutta", "Bangalore"],
+  RU: ["Saint-Pétersbourg", "Sotchi", "Kazan"],
+  GR: ["Thessalonique", "Patras", "Héraklion"],
+  AT: ["Salzbourg", "Graz", "Innsbruck"],
+  IE: ["Cork", "Galway", "Limerick"],
+  SE: ["Göteborg", "Malmö", "Uppsala"],
+  NO: ["Bergen", "Trondheim", "Stavanger"],
+  DK: ["Aarhus", "Odense", "Aalborg"],
+  FI: ["Turku", "Tampere", "Espoo"],
+  PL: ["Cracovie", "Gdańsk", "Wrocław"],
+  CZ: ["Brno", "Ostrava", "Plzeň"],
+  HU: ["Debrecen", "Szeged", "Pécs"],
+  RO: ["Cluj-Napoca", "Brașov", "Timișoara"],
+  HR: ["Split", "Dubrovnik", "Rijeka"],
+  RS: ["Novi Sad", "Niš", "Kragujevac"],
+  UA: ["Kharkiv", "Odessa", "Lviv"],
   MA: ["Casablanca", "Marrakech", "Tunis"],
+  DZ: ["Oran", "Constantine", "Annaba"],
+  TN: ["Sfax", "Sousse", "Hammamet"],
+  SN: ["Saint-Louis", "Thiès", "Touba"],
+  KE: ["Mombasa", "Kisumu", "Nakuru"],
+  SA: ["Djeddah", "La Mecque", "Médine"],
   CH: ["Zurich", "Genève", "Bâle"],
+  IL: ["Tel Aviv", "Haïfa", "Eilat"],
+  TH: ["Chiang Mai", "Phuket", "Pattaya"],
+  VN: ["Hô Chi Minh-Ville", "Da Nang", "Hué"],
+  KR: ["Busan", "Incheon", "Daegu"],
+  PK: ["Karachi", "Lahore", "Peshawar"],
+  BD: ["Chittagong", "Sylhet", "Khulna"],
   LK: ["Colombo", "Kandy", "Malé"],
+  MY: ["Putrajaya", "George Town", "Johor Bahru"],
   NZ: ["Auckland", "Christchurch", "Sydney"],
   AE: ["Dubaï", "Charjah", "Doha"],
+};
+
+const COUNTRY_TRAPS = {
+  FR: ["Belgique", "Suisse", "Luxembourg"], GB: ["Irlande", "France", "Pays-Bas"],
+  DE: ["Autriche", "Suisse", "Belgique"], IT: ["Espagne", "Grèce", "Portugal"],
+  ES: ["Portugal", "Italie", "France"], PT: ["Espagne", "Italie", "Grèce"],
+  BE: ["Pays-Bas", "Luxembourg", "France"], NL: ["Belgique", "Danemark", "Allemagne"],
+  CH: ["Autriche", "Luxembourg", "Allemagne"], CA: ["États-Unis", "Australie", "Nouvelle-Zélande"],
+  US: ["Canada", "Mexique", "Royaume-Uni"], RU: ["Ukraine", "Biélorussie", "Kazakhstan"],
+  BR: ["Argentine", "Colombie", "Pérou"], JP: ["Corée du Sud", "Chine", "Taïwan"],
+  CN: ["Japon", "Corée du Sud", "Mongolie"], IN: ["Pakistan", "Bangladesh", "Népal"],
+  AU: ["Nouvelle-Zélande", "Canada", "Afrique du Sud"], MX: ["Guatemala", "Cuba", "Costa Rica"],
+  AR: ["Uruguay", "Chili", "Brésil"], EG: ["Maroc", "Tunisie", "Jordanie"],
+  GR: ["Chypre", "Italie", "Turquie"], AT: ["Allemagne", "Suisse", "Hongrie"],
+  IE: ["Royaume-Uni", "Islande", "Danemark"], SE: ["Norvège", "Finlande", "Danemark"],
+  NO: ["Suède", "Finlande", "Islande"], DK: ["Suède", "Norvège", "Pays-Bas"],
+  FI: ["Suède", "Estonie", "Norvège"], PL: ["Tchéquie", "Slovaquie", "Hongrie"],
+  CZ: ["Slovaquie", "Pologne", "Autriche"], HU: ["Roumanie", "Slovaquie", "Croatie"],
+  RO: ["Bulgarie", "Hongrie", "Moldavie"], HR: ["Slovénie", "Serbie", "Monténégro"],
+  RS: ["Croatie", "Bosnie-Herzégovine", "Bulgarie"], UA: ["Pologne", "Roumanie", "Moldavie"],
+  MA: ["Algérie", "Tunisie", "Égypte"], CI: ["Ghana", "Sénégal", "Cameroun"],
+  DZ: ["Maroc", "Tunisie", "Libye"], TN: ["Algérie", "Maroc", "Libye"],
+  SN: ["Mali", "Mauritanie", "Gambie"], NG: ["Ghana", "Cameroun", "Niger"],
+  KE: ["Tanzanie", "Ouganda", "Éthiopie"],
+  ZA: ["Namibie", "Botswana", "Zimbabwe"], TR: ["Grèce", "Géorgie", "Arménie"],
+  SA: ["Émirats arabes unis", "Qatar", "Jordanie"], AE: ["Qatar", "Bahreïn", "Koweït"],
+  IL: ["Jordanie", "Liban", "Chypre"], TH: ["Cambodge", "Laos", "Malaisie"],
+  VN: ["Thaïlande", "Laos", "Cambodge"], KR: ["Japon", "Corée du Nord", "Chine"],
+  PK: ["Inde", "Afghanistan", "Iran"], BD: ["Inde", "Népal", "Sri Lanka"],
+  LK: ["Maldives", "Inde", "Bangladesh"], MY: ["Singapour", "Indonésie", "Brunei"],
+  NZ: ["Australie", "Fidji", "Papouasie-Nouvelle-Guinée"],
 };
 
 const EASY_RANK = [
@@ -243,7 +314,7 @@ function makeQuestion(pool, type, usedIso = new Set(), avoidedIso = new Set()) {
   const wrongPool = shuffle([...nearby, ...allOthers]).filter((country, index, items) =>
     valueFor(country, type.to) !== valueFor(answer, type.to)
     && items.findIndex((item) => valueFor(item, type.to) === valueFor(country, type.to)) === index);
-  const traps = type.to === "capital" ? CAPITAL_TRAPS[answer.iso] || [] : [];
+  const traps = type.to === "capital" ? CAPITAL_TRAPS[answer.iso] || [] : type.to === "country" ? COUNTRY_TRAPS[answer.iso] || [] : [];
   const wrongs = [...traps, ...wrongPool.map((c) => valueFor(c, type.to))]
     .filter((value, index, items) => value !== valueFor(answer, type.to) && items.indexOf(value) === index)
     .slice(0, 3);

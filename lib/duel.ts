@@ -36,7 +36,14 @@ const LABELS = {
 } as const;
 
 const CAPITAL_TRAPS: Record<string, string[]> = {
+  FR: ["Lyon", "Marseille", "Bordeaux"],
+  GB: ["Manchester", "Birmingham", "Édimbourg"],
+  DE: ["Francfort", "Munich", "Hambourg"],
+  IT: ["Milan", "Naples", "Turin"],
   ES: ["Rome", "Barcelone", "Séville"],
+  PT: ["Porto", "Braga", "Faro"],
+  BE: ["Anvers", "Bruges", "Liège"],
+  NL: ["La Haye", "Rotterdam", "Utrecht"],
   CI: ["Abidjan", "Bouaké", "Accra"],
   ZA: ["Le Cap", "Bloemfontein", "Johannesburg"],
   TZ: ["Dar es Salaam", "Arusha", "Mwanza"],
@@ -46,11 +53,75 @@ const CAPITAL_TRAPS: Record<string, string[]> = {
   AU: ["Sydney", "Melbourne", "Brisbane"],
   CA: ["Toronto", "Montréal", "Vancouver"],
   US: ["New York", "Los Angeles", "Chicago"],
+  MX: ["Guadalajara", "Monterrey", "Cancún"],
+  AR: ["Córdoba", "Rosario", "Mendoza"],
+  EG: ["Alexandrie", "Louxor", "Gizeh"],
+  JP: ["Kyoto", "Osaka", "Yokohama"],
+  CN: ["Shanghai", "Hong Kong", "Canton"],
+  IN: ["Mumbai", "Calcutta", "Bangalore"],
+  RU: ["Saint-Pétersbourg", "Sotchi", "Kazan"],
+  GR: ["Thessalonique", "Patras", "Héraklion"],
+  AT: ["Salzbourg", "Graz", "Innsbruck"],
+  IE: ["Cork", "Galway", "Limerick"],
+  SE: ["Göteborg", "Malmö", "Uppsala"],
+  NO: ["Bergen", "Trondheim", "Stavanger"],
+  DK: ["Aarhus", "Odense", "Aalborg"],
+  FI: ["Turku", "Tampere", "Espoo"],
+  PL: ["Cracovie", "Gdańsk", "Wrocław"],
+  CZ: ["Brno", "Ostrava", "Plzeň"],
+  HU: ["Debrecen", "Szeged", "Pécs"],
+  RO: ["Cluj-Napoca", "Brașov", "Timișoara"],
+  HR: ["Split", "Dubrovnik", "Rijeka"],
+  RS: ["Novi Sad", "Niš", "Kragujevac"],
+  UA: ["Kharkiv", "Odessa", "Lviv"],
   MA: ["Casablanca", "Marrakech", "Fès"],
+  DZ: ["Oran", "Constantine", "Annaba"],
+  TN: ["Sfax", "Sousse", "Hammamet"],
+  SN: ["Saint-Louis", "Thiès", "Touba"],
+  KE: ["Mombasa", "Kisumu", "Nakuru"],
+  SA: ["Djeddah", "La Mecque", "Médine"],
   CH: ["Zurich", "Genève", "Bâle"],
+  IL: ["Tel Aviv", "Haïfa", "Eilat"],
+  TH: ["Chiang Mai", "Phuket", "Pattaya"],
+  VN: ["Hô Chi Minh-Ville", "Da Nang", "Hué"],
+  KR: ["Busan", "Incheon", "Daegu"],
+  PK: ["Karachi", "Lahore", "Peshawar"],
+  BD: ["Chittagong", "Sylhet", "Khulna"],
   LK: ["Colombo", "Kandy", "Galle"],
+  MY: ["Putrajaya", "George Town", "Johor Bahru"],
   NZ: ["Auckland", "Christchurch", "Hamilton"],
   AE: ["Dubaï", "Charjah", "Al-Aïn"],
+};
+
+const COUNTRY_TRAPS: Record<string, string[]> = {
+  FR: ["Belgique", "Suisse", "Luxembourg"], GB: ["Irlande", "France", "Pays-Bas"],
+  DE: ["Autriche", "Suisse", "Belgique"], IT: ["Espagne", "Grèce", "Portugal"],
+  ES: ["Portugal", "Italie", "France"], PT: ["Espagne", "Italie", "Grèce"],
+  BE: ["Pays-Bas", "Luxembourg", "France"], NL: ["Belgique", "Danemark", "Allemagne"],
+  CH: ["Autriche", "Luxembourg", "Allemagne"], CA: ["États-Unis", "Australie", "Nouvelle-Zélande"],
+  US: ["Canada", "Mexique", "Royaume-Uni"], RU: ["Ukraine", "Biélorussie", "Kazakhstan"],
+  BR: ["Argentine", "Colombie", "Pérou"], JP: ["Corée du Sud", "Chine", "Taïwan"],
+  CN: ["Japon", "Corée du Sud", "Mongolie"], IN: ["Pakistan", "Bangladesh", "Népal"],
+  AU: ["Nouvelle-Zélande", "Canada", "Afrique du Sud"], MX: ["Guatemala", "Cuba", "Costa Rica"],
+  AR: ["Uruguay", "Chili", "Brésil"], EG: ["Maroc", "Tunisie", "Jordanie"],
+  GR: ["Chypre", "Italie", "Turquie"], AT: ["Allemagne", "Suisse", "Hongrie"],
+  IE: ["Royaume-Uni", "Islande", "Danemark"], SE: ["Norvège", "Finlande", "Danemark"],
+  NO: ["Suède", "Finlande", "Islande"], DK: ["Suède", "Norvège", "Pays-Bas"],
+  FI: ["Suède", "Estonie", "Norvège"], PL: ["Tchéquie", "Slovaquie", "Hongrie"],
+  CZ: ["Slovaquie", "Pologne", "Autriche"], HU: ["Roumanie", "Slovaquie", "Croatie"],
+  RO: ["Bulgarie", "Hongrie", "Moldavie"], HR: ["Slovénie", "Serbie", "Monténégro"],
+  RS: ["Croatie", "Bosnie-Herzégovine", "Bulgarie"], UA: ["Pologne", "Roumanie", "Moldavie"],
+  MA: ["Algérie", "Tunisie", "Égypte"], CI: ["Ghana", "Sénégal", "Cameroun"],
+  DZ: ["Maroc", "Tunisie", "Libye"], TN: ["Algérie", "Maroc", "Libye"],
+  SN: ["Mali", "Mauritanie", "Gambie"], NG: ["Ghana", "Cameroun", "Niger"],
+  KE: ["Tanzanie", "Ouganda", "Éthiopie"],
+  ZA: ["Namibie", "Botswana", "Zimbabwe"], TR: ["Grèce", "Géorgie", "Arménie"],
+  SA: ["Émirats arabes unis", "Qatar", "Jordanie"], AE: ["Qatar", "Bahreïn", "Koweït"],
+  IL: ["Jordanie", "Liban", "Chypre"], TH: ["Cambodge", "Laos", "Malaisie"],
+  VN: ["Thaïlande", "Laos", "Cambodge"], KR: ["Japon", "Corée du Nord", "Chine"],
+  PK: ["Inde", "Afghanistan", "Iran"], BD: ["Inde", "Népal", "Sri Lanka"],
+  LK: ["Maldives", "Inde", "Bangladesh"], MY: ["Singapour", "Indonésie", "Brunei"],
+  NZ: ["Australie", "Fidji", "Papouasie-Nouvelle-Guinée"],
 };
 
 function shuffle<T>(items: readonly T[]): T[] {
@@ -88,6 +159,10 @@ function plausibleWrongs(country: (typeof COUNTRIES)[number], to: "country" | "c
   const candidates = shuffle([...sameContinent, ...allOthers]).filter(
     (item, index, list) => list.findIndex((candidate) => valueFor(candidate, to) === valueFor(item, to)) === index,
   );
+  if (to === "country") {
+    const countries = [...(COUNTRY_TRAPS[country.iso] || []), ...candidates.map((item) => item.country)];
+    return countries.filter((value, index, list) => value !== country.country && list.indexOf(value) === index).slice(0, 3);
+  }
   if (to !== "capital") return candidates.slice(0, 3).map((item) => valueFor(item, to));
   const traps = shuffle(CAPITAL_TRAPS[country.iso] || []);
   const capitals = candidates.map((item) => item.capital);
