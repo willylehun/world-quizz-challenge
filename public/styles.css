@@ -82,7 +82,8 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 3px; }
 .topbar-actions { display: flex; align-items: center; gap: 10px; }
 
 .score-button,
-.install-button {
+.install-button,
+.reset-button {
   border: 1px solid var(--line);
   border-radius: 999px;
   color: var(--ink);
@@ -97,9 +98,25 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 3px; }
 .install-button { color: var(--teal); }
 .install-button span:first-child { font-size: 1.12rem; font-weight: 900; }
 .score-button span:first-child { color: var(--gold); }
+.reset-button span:first-child { color: var(--red); font-size: 1.08rem; font-weight: 900; }
 .score-button:hover,
-.install-button:hover { border-color: var(--teal); transform: translateY(-2px); }
+.install-button:hover,
+.reset-button:hover { border-color: var(--teal); transform: translateY(-2px); }
 .install-button.installed { display: none; }
+
+.wqc-balance {
+  min-height: 43px;
+  border: 1px solid rgba(248, 200, 90, .36);
+  border-radius: 999px;
+  background: rgba(248, 200, 90, .08);
+  padding: 8px 13px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--gold);
+}
+.wqc-balance strong { font-size: 1.05rem; }
+.wqc-balance small { color: var(--muted); font-size: .7rem; font-weight: 850; letter-spacing: .06em; }
 
 main { flex: 1; display: flex; }
 .screen { width: 100%; flex: 1; }
@@ -182,6 +199,8 @@ main { flex: 1; display: flex; }
 .mode-arrow { font-size: 2rem; color: var(--teal); z-index: 1; }
 
 .training-card { background: linear-gradient(135deg, rgba(20, 64, 78, 0.96), rgba(9, 31, 48, 0.96)); }
+.challenge-card { background: linear-gradient(135deg, rgba(73, 48, 100, .96), rgba(18, 27, 54, .96)); }
+.duel-card { background: linear-gradient(135deg, rgba(20, 94, 91, .94), rgba(8, 36, 62, .96)); }
 
 .home-stats {
   grid-column: 1 / -1;
@@ -250,6 +269,21 @@ main { flex: 1; display: flex; }
 .choice-card strong { font-size: 1.22rem; }
 .choice-card small { color: var(--muted); line-height: 1.4; }
 .choice-code { color: var(--teal); font-weight: 900; letter-spacing: .12em; font-size: .76rem; }
+.challenge-intro { margin: -16px 0 28px 70px; color: var(--muted); line-height: 1.55; }
+.challenge-grid .challenge-choice { min-height: 190px; position: relative; }
+.challenge-status {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  border: 1px solid rgba(248, 200, 90, .34);
+  border-radius: 999px;
+  padding: 6px 10px;
+  color: var(--gold);
+  background: rgba(248, 200, 90, .08);
+  font-size: .76rem;
+  font-weight: 850;
+}
+.challenge-status.joined { color: var(--teal); border-color: rgba(45, 212, 191, .35); background: var(--teal-soft); }
 
 .levels-heading { grid-template-columns: auto 1fr auto; }
 .progress-summary { text-align: right; color: var(--muted); }
@@ -284,6 +318,9 @@ main { flex: 1; display: flex; }
 .level-button strong { font-size: 1.08rem; }
 .level-button small { color: var(--gold); font-size: .62rem; letter-spacing: -1px; }
 .level-lock { font-size: .8rem; color: var(--muted); }
+.challenge-levels-grid { grid-template-columns: repeat(5, 1fr); }
+.challenge-levels-grid .level-button { aspect-ratio: 1.7; }
+.challenge-levels-grid .level-button small { letter-spacing: 0; }
 
 .quiz-screen { padding: 35px 0 24px; max-width: 880px; margin: 0 auto; }
 .quiz-header { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 18px; }
@@ -355,6 +392,7 @@ main { flex: 1; display: flex; }
 .primary-button { background: var(--teal); color: #04201d; border: 1px solid var(--teal); }
 .secondary-button { background: transparent; color: var(--ink); border: 1px solid var(--line); }
 .danger-button { background: var(--red); color: #2a0710; border: 1px solid var(--red); }
+.primary-button:disabled { opacity: .38; cursor: not-allowed; }
 
 dialog {
   color: var(--ink);
@@ -367,7 +405,7 @@ dialog::backdrop { background: rgba(1, 6, 14, .78); backdrop-filter: blur(6px); 
 .dialog-head { padding: 27px; display: flex; align-items: flex-start; justify-content: space-between; border-bottom: 1px solid var(--line); }
 .dialog-head h2 { font-size: 2.1rem; }
 .dialog-head .eyebrow { margin-bottom: 6px; }
-.score-tabs { display: grid; grid-template-columns: 1fr 1fr; padding: 13px 27px 0; gap: 7px; }
+.score-tabs { display: grid; grid-template-columns: repeat(4, 1fr); padding: 13px 27px 0; gap: 7px; }
 .score-tabs button { border: 0; border-bottom: 2px solid transparent; color: var(--muted); background: transparent; padding: 12px; cursor: pointer; }
 .score-tabs button.active { color: var(--ink); border-color: var(--teal); }
 #scores-content { padding: 22px 27px 30px; overflow-y: auto; max-height: 520px; }
@@ -391,11 +429,66 @@ dialog::backdrop { background: rgba(1, 6, 14, .78); backdrop-filter: blur(6px); 
 .install-copy strong { color: var(--ink); }
 .data-error { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); padding: 14px 18px; border-radius: 12px; background: var(--red); color: #28070e; font-weight: 800; }
 
+.profile-button {
+  border: 1px solid rgba(45,212,191,.35); border-radius: 999px; color: var(--ink); background: rgba(45,212,191,.08);
+  padding: 10px 14px; display: inline-flex; gap: 8px; align-items: center; cursor: pointer; font-weight: 750;
+}
+.profile-button span:first-child { color: var(--teal); font-size: .7rem; }
+.duel-heading { grid-template-columns: auto 1fr auto; }
+.notify-button { white-space: nowrap; }
+.duel-layout { display: grid; grid-template-columns: minmax(280px, .72fr) minmax(360px, 1.28fr); gap: 24px; padding-bottom: 35px; }
+.duel-create-card, .duel-list-section, .loading-card {
+  background: rgba(12,32,57,.8); border: 1px solid var(--line); border-radius: 20px; padding: 24px;
+}
+.duel-create-card { align-self: start; display: grid; gap: 14px; }
+.duel-create-card h3, .duel-list-section h3 { margin: 0; font-size: 1.35rem; }
+.duel-create-card label, .profile-dialog label { color: var(--muted); font-size: .84rem; font-weight: 750; }
+.duel-create-card > input, .profile-dialog input {
+  width: 100%; border: 1px solid var(--line); border-radius: 12px; background: rgba(4,13,27,.72); color: var(--ink); padding: 13px 14px; font: inherit;
+}
+.duel-create-card fieldset { margin: 2px 0; padding: 0; border: 0; }
+.duel-create-card legend { color: var(--muted); font-size: .84rem; font-weight: 750; margin-bottom: 9px; }
+.duel-difficulties { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.duel-difficulties label { position: relative; cursor: pointer; }
+.duel-difficulties input { position: absolute; opacity: 0; }
+.duel-difficulties span { display: grid; gap: 3px; border: 1px solid var(--line); border-radius: 12px; padding: 11px; color: var(--ink); }
+.duel-difficulties small { color: var(--muted); font-weight: 500; }
+.duel-difficulties input:checked + span { border-color: var(--teal); background: var(--teal-soft); }
+.form-message { min-height: 1.3em; margin: 0; color: var(--gold); font-size: .88rem; }
+.duel-lists { display: grid; gap: 14px; align-content: start; }
+.duel-list-section { padding: 18px; }
+.duel-list-section h3 { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.duel-list-section h3 span { min-width: 28px; height: 28px; display: grid; place-items: center; border-radius: 50%; background: var(--teal-soft); color: var(--teal); font-size: .82rem; }
+.duel-list-card { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 13px 0; border-top: 1px solid var(--line); }
+.duel-list-card > div:first-child { display: grid; gap: 3px; }
+.duel-list-card span, .duel-empty { color: var(--muted); font-size: .82rem; }
+.duel-empty { margin: 0; padding: 7px 0; }
+.duel-card-actions { display: flex; gap: 7px; }
+.duel-card-actions button { padding: 9px 13px; }
+.error-card { color: var(--red); }
+.duel-score { display: flex; gap: 9px; align-items: baseline; font-size: 1.35rem; font-weight: 900; color: var(--gold); }
+.duel-score small { color: var(--muted); }
+.duel-reveal { margin: 18px auto 0; max-width: 570px; padding: 15px 18px; border: 1px solid rgba(248,200,90,.35); border-radius: 13px; background: rgba(248,200,90,.08); display: grid; gap: 5px; }
+.duel-reveal span { color: var(--muted); font-size: .82rem; }
+#duel-next { display: block; margin: 20px auto 0; }
+.duel-joker-dock { grid-template-columns: minmax(190px, 290px); justify-content: center; }
+.profile-dialog { width: min(480px, calc(100% - 28px)); border-radius: 24px; padding: 28px; }
+.profile-dialog > .brand-mark { margin-bottom: 24px; }
+.profile-dialog > .eyebrow { display: block; margin: 18px 0 6px; }
+.profile-dialog h2 { margin: 0; font-size: 2rem; }
+.profile-dialog p, .privacy-note { color: var(--muted); line-height: 1.5; }
+.profile-dialog form { display: grid; gap: 12px; margin: 22px 0; }
+.profile-dialog .dialog-head { padding: 0 0 20px; margin-bottom: 20px; }
+.profile-status { display: flex; justify-content: space-between; gap: 15px; border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin: 18px 0; }
+.profile-status span { color: var(--muted); }
+.duel-score-overview { grid-template-columns: repeat(3, 1fr); }
+
 @media (max-width: 900px) {
   .home-screen { grid-template-columns: 1fr; gap: 34px; padding-top: 35px; align-items: start; }
   .home-stats { grid-column: 1; }
   .choice-grid { grid-template-columns: 1fr 1fr; }
   .levels-grid { grid-template-columns: repeat(8, 1fr); }
+  .duel-layout { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 620px) {
@@ -404,9 +497,16 @@ dialog::backdrop { background: rgba(1, 6, 14, .78); backdrop-filter: blur(6px); 
   .brand-name { display: none; }
   .brand-mark { width: 49px; height: 40px; }
   .score-button span:last-child,
-  .install-button span:last-child { display: none; }
+  .install-button span:last-child,
+  .reset-button span:last-child { display: none; }
+  .profile-button span:last-child { display: none; }
   .score-button,
-  .install-button { width: 44px; height: 44px; justify-content: center; padding: 0; }
+  .install-button,
+  .reset-button { width: 42px; height: 42px; justify-content: center; padding: 0; }
+  .profile-button { width: 42px; height: 42px; justify-content: center; padding: 0; }
+  .topbar-actions { gap: 6px; }
+  .wqc-balance { min-height: 42px; padding: 6px 9px; gap: 4px; }
+  .wqc-balance small { display: none; }
   .home-screen { padding-top: 28px; gap: 28px; }
   .hero-copy h1 { font-size: 3.3rem; }
   .hero-copy p { margin-top: 17px; }
@@ -417,11 +517,14 @@ dialog::backdrop { background: rgba(1, 6, 14, .78); backdrop-filter: blur(6px); 
   .section-heading { margin: 28px 0 27px; gap: 14px; }
   .choice-grid { grid-template-columns: 1fr; }
   .choice-card { min-height: 115px; }
+  .challenge-intro { margin: -10px 0 22px; }
   .levels-heading { grid-template-columns: auto 1fr; }
   .progress-summary { grid-column: 2; text-align: left; display: flex; gap: 7px; align-items: baseline; }
   .progress-summary strong { font-size: 1.1rem; }
   .difficulty-legend { display: grid; font-size: .86rem; }
   .levels-grid { grid-template-columns: repeat(5, 1fr); gap: 7px; }
+  .challenge-levels-grid { grid-template-columns: repeat(2, 1fr); }
+  .challenge-levels-grid .level-button { aspect-ratio: 1.8; }
   .quiz-screen { padding-top: 22px; }
   .question-panel { padding-top: 45px; }
   .question-panel h2 { margin-bottom: 28px; }
@@ -432,6 +535,13 @@ dialog::backdrop { background: rgba(1, 6, 14, .78); backdrop-filter: blur(6px); 
   .joker-dock small { display: none; }
   .result-actions { display: grid; }
   .score-overview { grid-template-columns: 1fr; }
+  .score-tabs { grid-template-columns: repeat(2, 1fr); }
+  .duel-heading { grid-template-columns: auto 1fr; }
+  .notify-button { grid-column: 2; justify-self: start; }
+  .duel-create-card, .duel-list-section { padding: 17px; }
+  .duel-list-card { align-items: flex-start; flex-direction: column; }
+  .duel-difficulties { grid-template-columns: 1fr; }
+  .duel-score-overview { grid-template-columns: repeat(3, 1fr); }
 }
 
 @media (prefers-reduced-motion: reduce) {

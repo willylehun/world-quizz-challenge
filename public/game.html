@@ -13,7 +13,7 @@
     <link rel="icon" type="image/svg+xml" href="icons/icon.svg" />
     <link rel="apple-touch-icon" href="icons/icon-192.png" />
     <title>World Quizz Challenge</title>
-    <link rel="stylesheet" href="styles.css?v=5" />
+    <link rel="stylesheet" href="styles.css?v=6" />
   </head>
   <body>
     <div class="app-shell">
@@ -23,6 +23,9 @@
           <span class="brand-name">World Quizz Challenge</span>
         </button>
         <div class="topbar-actions">
+          <button class="profile-button" type="button" data-action="profile" aria-label="Afficher le profil WQC">
+            <span aria-hidden="true">●</span><span id="profile-name">Profil</span>
+          </button>
           <div class="wqc-balance" aria-label="Solde WQC">
             <span aria-hidden="true">◆</span><strong id="wqc-balance">0</strong><small>WQC</small>
           </div>
@@ -71,6 +74,14 @@
               <span class="mode-content">
                 <strong>Challenge</strong>
                 <small>3 défis • 20 paliers • récompenses en WQC</small>
+              </span>
+              <span class="mode-arrow" aria-hidden="true">→</span>
+            </button>
+            <button class="mode-card duel-card" type="button" data-action="open-duel">
+              <span class="mode-number">04</span>
+              <span class="mode-content">
+                <strong>Défi entre amis</strong>
+                <small>20 questions • 4 difficultés • 1 Erase chacun</small>
               </span>
               <span class="mode-arrow" aria-hidden="true">→</span>
             </button>
@@ -166,6 +177,54 @@
             <div class="result-actions" id="result-actions"></div>
           </div>
         </section>
+
+        <section class="screen hidden" data-screen="duel-home">
+          <div class="section-heading duel-heading">
+            <button class="back-button" type="button" data-action="home" aria-label="Retour">←</button>
+            <div><span class="eyebrow">Défi entre amis</span><h2>Affronte un ami</h2></div>
+            <button class="secondary-button notify-button" type="button" data-action="enable-notifications">Activer les notifications</button>
+          </div>
+          <div class="duel-layout">
+            <form id="duel-form" class="duel-create-card">
+              <span class="eyebrow">Nouveau duel</span>
+              <h3>Qui veux-tu défier ?</h3>
+              <label for="opponent-name">Pseudo WQC de ton ami</label>
+              <input id="opponent-name" name="opponent" minlength="3" maxlength="20" autocomplete="off" required placeholder="Ex. GlobeTrotter" />
+              <fieldset>
+                <legend>Difficulté</legend>
+                <div class="duel-difficulties">
+                  <label><input type="radio" name="difficulty" value="easy" checked /><span><strong>Facile</strong><small>Pays connus</small></span></label>
+                  <label><input type="radio" name="difficulty" value="medium" /><span><strong>Moyen</strong><small>Monde varié</small></span></label>
+                  <label><input type="radio" name="difficulty" value="hard" /><span><strong>Difficile</strong><small>Pays moins connus</small></span></label>
+                  <label><input type="radio" name="difficulty" value="ultimate" /><span><strong>Ultime</strong><small>Expert mondial</small></span></label>
+                </div>
+              </fieldset>
+              <button class="primary-button" type="submit">Envoyer le défi</button>
+              <p class="form-message" id="duel-form-message" role="status"></p>
+            </form>
+            <div class="duel-lists" id="duel-lists"><div class="loading-card">Chargement des défis…</div></div>
+          </div>
+        </section>
+
+        <section class="screen quiz-screen hidden" data-screen="duel-game">
+          <div class="quiz-header">
+            <button class="quit-button" type="button" data-action="open-duel">×</button>
+            <div class="quiz-context"><span id="duel-context">Défi</span><strong id="duel-progress">Question 1 / 20</strong></div>
+            <div class="duel-score"><span id="duel-player-score">0</span><small>–</small><span id="duel-opponent-score">0</span></div>
+          </div>
+          <div class="progress-track" aria-hidden="true"><div id="duel-progress-bar"></div></div>
+          <div class="question-panel" id="duel-question-panel">
+            <div class="question-kicker" id="duel-kicker">Défi WQC</div>
+            <h2 id="duel-question">Chargement…</h2>
+            <div class="answers-grid" id="duel-answers"></div>
+            <p class="feedback" id="duel-feedback" role="status"></p>
+            <div class="duel-reveal hidden" id="duel-reveal"></div>
+            <button class="primary-button hidden" type="button" data-action="duel-next" id="duel-next">Question suivante</button>
+          </div>
+          <div class="joker-dock duel-joker-dock" id="duel-joker-dock">
+            <button type="button" data-action="duel-erase" id="duel-erase"><span class="joker-icon">−2</span><strong>Erase</strong><small>Une fois par duel</small></button>
+          </div>
+        </section>
       </main>
     </div>
 
@@ -178,6 +237,7 @@
         <button class="active" type="button" data-score-tab="classic" role="tab">Classique</button>
         <button type="button" data-score-tab="training" role="tab">Entraînement</button>
         <button type="button" data-score-tab="challenge" role="tab">Challenge</button>
+        <button type="button" data-score-tab="duel" role="tab">Duels</button>
       </div>
       <div id="scores-content"></div>
     </dialog>
@@ -193,11 +253,36 @@
 
     <dialog id="reset-dialog" class="confirm-dialog">
       <h2>Réinitialiser tout le jeu ?</h2>
-      <p>Cette action efface les scores, les niveaux débloqués, les inscriptions Challenge, l’historique des questions et le solde WQC.</p>
+      <p>Cette action efface les scores, les niveaux débloqués, les inscriptions Challenge, l’historique des questions, le solde WQC et remet les statistiques de duel à zéro. Ton profil et tes parties restent accessibles.</p>
       <div class="dialog-actions">
         <button type="button" class="secondary-button" data-action="cancel-reset">Annuler</button>
         <button type="button" class="danger-button" data-action="confirm-reset">Tout effacer</button>
       </div>
+    </dialog>
+
+    <dialog id="profile-setup-dialog" class="profile-dialog" data-locked="true">
+      <span class="brand-mark">WQC</span>
+      <span class="eyebrow">Premier lancement</span>
+      <h2>Crée ton profil de joueur</h2>
+      <p>Aucun compte externe, aucun e-mail : choisis simplement un pseudo unique pour défier tes amis.</p>
+      <form id="profile-form">
+        <label for="new-profile-name">Ton pseudo WQC</label>
+        <input id="new-profile-name" name="name" minlength="3" maxlength="20" required autocomplete="nickname" placeholder="3 à 20 caractères" />
+        <button class="primary-button" type="submit">Créer mon profil</button>
+        <p class="form-message" id="profile-form-message" role="status"></p>
+      </form>
+      <small class="privacy-note">Ce profil est conservé sur cet appareil. Garde les données du navigateur pour ne pas perdre l’accès.</small>
+    </dialog>
+
+    <dialog id="profile-dialog" class="profile-dialog">
+      <div class="dialog-head">
+        <div><span class="eyebrow">Profil WQC</span><h2 id="profile-dialog-name">Joueur</h2></div>
+        <button type="button" data-action="close-profile" aria-label="Fermer">×</button>
+      </div>
+      <p>Ce pseudo permet à tes amis de t’inviter sans compte externe.</p>
+      <div class="profile-status"><span>Notifications</span><strong id="notification-status">Non activées</strong></div>
+      <button class="primary-button" type="button" data-action="enable-notifications">Activer les notifications</button>
+      <small class="privacy-note">Sur iPhone/iPad, installe d’abord WQC sur l’écran d’accueil pour recevoir les notifications.</small>
     </dialog>
 
     <dialog id="confirm-dialog" class="confirm-dialog">
@@ -227,6 +312,6 @@
     <div id="data-error" class="data-error hidden" role="alert">
       Impossible de charger les questions. Recharge la page pour réessayer.
     </div>
-    <script src="app.js?v=5" defer></script>
+    <script src="app.js?v=6" defer></script>
   </body>
 </html>

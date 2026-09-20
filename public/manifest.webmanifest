@@ -1,9 +1,9 @@
 {
   "name": "World Quizz Challenge",
   "short_name": "WQC",
-  "description": "Teste tes connaissances des pays, capitales et chefs d’État.",
+  "description": "Teste tes connaissances des pays, capitales et dirigeants, puis relève les challenges WQC.",
   "lang": "fr",
-  "start_url": "./",
+  "start_url": "./game.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "any",
