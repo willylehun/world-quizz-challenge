@@ -79,6 +79,7 @@ const els = {
   feedback: document.querySelector("#feedback"),
   jokerDock: document.querySelector("#joker-dock"),
   resultScore: document.querySelector("#result-score"),
+  resultRing: document.querySelector("#result-ring"),
   resultEyebrow: document.querySelector("#result-eyebrow"),
   resultTitle: document.querySelector("#result-title"),
   resultMessage: document.querySelector("#result-message"),
