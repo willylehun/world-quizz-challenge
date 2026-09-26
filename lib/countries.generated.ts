@@ -68,7 +68,7 @@ export const COUNTRIES = [
     "continent": "Afrique",
     "country": "Cap-Vert",
     "capital": "Praia",
-    "leader": "Ulisses Correia e Silva",
+    "leader": "Francisco Carvalho",
     "role": "Premier ministre",
     "iso": "CV"
   },
@@ -1252,8 +1252,8 @@ export const COUNTRIES = [
     "continent": "Europe",
     "country": "Lettonie",
     "capital": "Riga",
-    "leader": "Evika Siliņa",
-    "role": "Première ministre",
+    "leader": "Andris Kulbergs",
+    "role": "Premier ministre",
     "iso": "LV"
   },
   {
@@ -1268,8 +1268,8 @@ export const COUNTRIES = [
     "continent": "Europe",
     "country": "Lituanie",
     "capital": "Vilnius",
-    "leader": "Inga Ruginienė",
-    "role": "Première ministre",
+    "leader": "Mindaugas Sinkevičius",
+    "role": "Premier ministre",
     "iso": "LT"
   },
   {
@@ -1300,7 +1300,7 @@ export const COUNTRIES = [
     "continent": "Europe",
     "country": "Moldavie",
     "capital": "Chișinău",
-    "leader": "Alexandru Munteanu",
+    "leader": "Vasile Tofan",
     "role": "Premier ministre",
     "iso": "MD"
   },
