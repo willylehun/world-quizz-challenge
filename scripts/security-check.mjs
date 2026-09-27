@@ -30,6 +30,10 @@ const headers = readFileSync("public/_headers", "utf8");
 for (const directive of ["Content-Security-Policy:", "frame-ancestors 'none'", "X-Content-Type-Options: nosniff", "Permissions-Policy:", "Referrer-Policy:"]) {
   if (!headers.includes(directive)) failures.push(`En-tête de sécurité manquant : ${directive}`);
 }
+const frameworkHeaders = readFileSync("next.config.ts", "utf8");
+for (const directive of ["Content-Security-Policy", "frame-ancestors 'none'", "X-Content-Type-Options", "Permissions-Policy", "Referrer-Policy"]) {
+  if (!frameworkHeaders.includes(directive)) failures.push(`En-tête framework manquant : ${directive}`);
+}
 
 for (const workflow of files.filter((name) => /^\.github\/workflows\/.*\.ya?ml$/.test(name))) {
   const content = readFileSync(workflow, "utf8");
