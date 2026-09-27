@@ -11,6 +11,8 @@
     "build": "node scripts/run-framework.mjs build",
     "start": "node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js dev --config dist/server/wrangler.json --local --persist-to .wrangler/state --ip 127.0.0.1 --inspector-port 0",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
+    "typecheck": "tsc --noEmit",
+    "security:check": "node scripts/security-check.mjs",
     "db:generate": "drizzle-kit generate"
   },
   "dependencies": {
@@ -62,6 +64,9 @@
   },
   "type": "module",
   "overrides": {
+    "@babel/core": "7.29.6",
+    "baseline-browser-mapping": "2.11.0",
+    "browserslist": "4.28.7",
     "miniflare": {
       "sharp": "0.35.4"
     }

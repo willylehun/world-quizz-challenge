@@ -166,6 +166,38 @@ const storage = {
   },
 };
 
+const DUEL_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const PROFILE_TOKEN_RE = /^[A-Za-z0-9_-]{43}$/;
+
+function boundedInteger(value, minimum, maximum, fallback = minimum) {
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.min(maximum, Math.max(minimum, Math.trunc(number))) : fallback;
+}
+
+function normalizedScoreMap(value, maximumKey) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  return Object.fromEntries(Object.entries(value).flatMap(([key, score]) => {
+    const numberKey = Number(key);
+    return Number.isInteger(numberKey) && numberKey >= 1 && numberKey <= maximumKey
+      ? [[String(numberKey), boundedInteger(score, 0, 10, 0)]] : [];
+  }));
+}
+
+function normalizedRewardMap(value, maximumKey) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  return Object.fromEntries(Object.entries(value).flatMap(([key, rewarded]) => {
+    const numberKey = Number(key);
+    return Number.isInteger(numberKey) && numberKey >= 1 && numberKey <= maximumKey && rewarded === true
+      ? [[String(numberKey), true]] : [];
+  }));
+}
+
+function isDuelId(value) { return typeof value === "string" && DUEL_ID_RE.test(value); }
+function duelApiPath(id, action = "") {
+  if (!isDuelId(id)) throw new Error("Identifiant de défi invalide.");
+  return `matches/${encodeURIComponent(id)}${action ? `/${action}` : ""}`;
+}
+
 const els = {
   screens: [...document.querySelectorAll("[data-screen]")],
   regionGrid: document.querySelector("#region-grid"), typeGrid: document.querySelector("#type-grid"),
@@ -258,10 +290,13 @@ function continentProgressKey(continent) {
 }
 
 function getContinentStats() {
-  const stored = storage.get("wqc-continent-stats", {});
+  const value = storage.get("wqc-continent-stats", {});
+  const stored = value && typeof value === "object" && !Array.isArray(value) ? value : {};
   return Object.fromEntries(CONTINENT_PROGRESS.map((continent) => {
     const entry = stored[continent.id] || {};
-    return [continent.id, { correct: Math.max(0, Number(entry.correct) || 0), total: Math.max(0, Number(entry.total) || 0) }];
+    const total = boundedInteger(entry.total, 0, Number.MAX_SAFE_INTEGER, 0);
+    const correct = boundedInteger(entry.correct, 0, total, 0);
+    return [continent.id, { correct, total }];
   }));
 }
 
@@ -291,8 +326,8 @@ function renderContinentProgress() {
   }).join("");
 }
 
-function getWallet() { return Math.max(0, Number(storage.get("wqc-wallet", 0)) || 0); }
-function setWallet(value) { storage.set("wqc-wallet", Math.max(0, Math.round(value))); updateBalance(); }
+function getWallet() { return boundedInteger(storage.get("wqc-wallet", 0), 0, Number.MAX_SAFE_INTEGER, 0); }
+function setWallet(value) { storage.set("wqc-wallet", boundedInteger(value, 0, Number.MAX_SAFE_INTEGER, 0)); updateBalance(); }
 function addWallet(value) { setWallet(getWallet() + value); }
 function updateBalance() { els.balance.textContent = new Intl.NumberFormat("fr-FR").format(getWallet()); }
 
@@ -303,20 +338,42 @@ function targetForLevel(level) {
 }
 
 function getClassicData() {
-  const raw = storage.get("wqc-classic", {});
-  return { unlocked: Math.max(1, Number(raw.unlocked) || 1), scores: raw.scores || {}, rewards: raw.rewards || {} };
+  const value = storage.get("wqc-classic", {});
+  const raw = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  return {
+    unlocked: boundedInteger(raw.unlocked, 1, 100, 1),
+    scores: normalizedScoreMap(raw.scores, 100),
+    rewards: normalizedRewardMap(raw.rewards, 100),
+  };
 }
 
 function getChallengeData() {
-  const raw = storage.get("wqc-challenge", {}), normalized = {};
+  const value = storage.get("wqc-challenge", {});
+  const raw = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  const normalized = {};
   CHALLENGE_TYPES.forEach((challenge) => {
-    const entry = raw[challenge.id] || {};
+    const valueEntry = raw[challenge.id];
+    const entry = valueEntry && typeof valueEntry === "object" && !Array.isArray(valueEntry) ? valueEntry : {};
     normalized[challenge.id] = {
-      joined: Boolean(entry.joined), unlocked: Math.max(1, Number(entry.unlocked) || 1),
-      scores: entry.scores || {}, rewards: entry.rewards || {},
+      joined: entry.joined === true,
+      unlocked: boundedInteger(entry.unlocked, 1, 20, 1),
+      scores: normalizedScoreMap(entry.scores, 20),
+      rewards: normalizedRewardMap(entry.rewards, 20),
     };
   });
   return normalized;
+}
+
+function getTrainingScores() {
+  const value = storage.get("wqc-training", {});
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  return Object.fromEntries(Object.entries(value).flatMap(([key, score]) => {
+    const [region, typeId, extra] = key.split("|");
+    const validRegion = REGION_OPTIONS.some((item) => item.id === region);
+    const validType = QUESTION_TYPES.some((item) => item.id === typeId);
+    return validRegion && validType && extra === undefined
+      ? [[key, boundedInteger(score, 0, 10, 0)]] : [];
+  }));
 }
 
 function migrateWallet() {
@@ -670,6 +727,7 @@ async function api(path, options = {}) {
 
 async function initProfile() {
   state.profileToken = storage.get("wqc-profile-token", null);
+  if (!PROFILE_TOKEN_RE.test(String(state.profileToken || ""))) state.profileToken = null;
   if (state.profileToken) {
     try {
       const data = await api("me");
@@ -677,7 +735,7 @@ async function initProfile() {
       storage.set("wqc-profile", state.profile);
       updateProfileUI();
       const requested = new URLSearchParams(location.search).get("duel");
-      if (requested) openDuelMatch(requested).catch(() => openDuelHome());
+      if (isDuelId(requested)) openDuelMatch(requested).catch(() => openDuelHome());
       return;
     } catch (error) {
       if (error.status !== 401) return;
@@ -712,6 +770,7 @@ async function createProfile(event) {
 const DUEL_LABELS = { easy: "Facile", medium: "Moyen", hard: "Difficile", ultimate: "Ultime" };
 
 function duelCard(match, kind) {
+  if (!isDuelId(match.id)) return "";
   const score = match.isPlayer1 ? `${match.player1.score}–${match.player2.score}` : `${match.player2.score}–${match.player1.score}`;
   let actions = `<button class="secondary-button" type="button" data-open-duel="${match.id}">${kind === "complete" ? "Résultat et réponses" : "Ouvrir"}</button>`;
   if (kind === "invitation") actions = `<button class="secondary-button" type="button" data-cancel-duel="${match.id}">Supprimer</button><button class="primary-button" type="button" data-accept-duel="${match.id}">Accepter</button>`;
@@ -764,14 +823,14 @@ async function submitDuel(event) {
 }
 
 async function changeInvitation(id, action) {
-  try { await api(`matches/${id}/${action}`, { method: "POST" }); await openDuelHome(); }
+  try { await api(duelApiPath(id, action), { method: "POST" }); await openDuelHome(); }
   catch (error) { els.duelLists.insertAdjacentHTML("afterbegin", `<div class="loading-card error-card">${escapeHTML(error.message)}</div>`); }
 }
 
 function duelDisplayIndex(match) { return match.questionIndex + 1; }
 
 async function openDuelMatch(id) {
-  const { match } = await api(`matches/${id}`);
+  const { match } = await api(duelApiPath(id));
   state.duelMatch = match; state.duelLocked = false; renderDuelMatch();
   if (!match.isTurn && match.status === "active") state.duelPoll = setInterval(() => { if (state.screen === "duel-game") openDuelMatch(id); }, 30000);
 }
@@ -843,7 +902,7 @@ async function rematchDuel() {
   const button = document.querySelector('[data-action="duel-rematch"]');
   button.disabled = true; els.duelResultFeedback.textContent = "Envoi du match retour…";
   try {
-    const result = await api(`matches/${state.duelMatch.id}/rematch`, { method: "POST" });
+    const result = await api(duelApiPath(state.duelMatch.id, "rematch"), { method: "POST" });
     await openDuelHome(); els.duelFormMessage.textContent = result.message;
   } catch (error) { els.duelResultFeedback.textContent = error.message; button.disabled = false; }
 }
@@ -853,7 +912,7 @@ async function answerDuel(answer) {
   state.duelLocked = true;
   [...els.duelAnswers.querySelectorAll("button")].forEach((button) => { button.disabled = true; });
   try {
-    const result = await api(`matches/${state.duelMatch.id}/answer`, { method: "POST", body: JSON.stringify({ answer }) });
+    const result = await api(duelApiPath(state.duelMatch.id, "answer"), { method: "POST", body: JSON.stringify({ answer }) });
     recordContinentAnswer(state.duelMatch.question.answerIso, result.reveal.correct);
     [...els.duelAnswers.querySelectorAll("button")].forEach((button) => {
       const value = decodeURIComponent(button.dataset.duelAnswer);
@@ -879,7 +938,7 @@ async function nextDuelQuestion() {
 async function eraseDuel() {
   if (!state.duelMatch?.isTurn || els.duelErase.disabled) return;
   try {
-    const result = await api(`matches/${state.duelMatch.id}/erase`, { method: "POST" });
+    const result = await api(duelApiPath(state.duelMatch.id, "erase"), { method: "POST" });
     [...els.duelAnswers.querySelectorAll("button")].filter((button) => result.removed.includes(decodeURIComponent(button.dataset.duelAnswer))).forEach((button) => { button.disabled = true; button.classList.add("erased"); });
     els.duelErase.disabled = true; state.duelMatch.eraseAvailable = false;
   } catch (error) { els.duelFeedback.textContent = error.message; els.duelFeedback.classList.add("bad"); }
@@ -913,7 +972,7 @@ async function showScores(tab = "classic") {
     els.scoresContent.innerHTML = `<div class="score-overview"><div class="score-stat"><span>Niveaux réussis</span><strong>${passed}/100</strong></div><div class="score-stat"><span>Meilleur résultat</span><strong>${best}/10</strong></div></div>
       ${entries.length ? `<div class="score-list">${entries.map(([level, score]) => `<div class="score-row"><span>Niveau ${level} • ${Math.ceil(Number(level) / 10)}★</span><strong>${score}/10</strong></div>`).join("")}</div>` : '<div class="score-empty">Aucun niveau joué pour le moment.</div>'}`;
   } else if (tab === "training") {
-    const scores = storage.get("wqc-training", {}), entries = Object.entries(scores).sort((a, b) => Number(b[1]) - Number(a[1]));
+    const scores = getTrainingScores(), entries = Object.entries(scores).sort((a, b) => Number(b[1]) - Number(a[1]));
     const best = entries.length ? Math.max(...entries.map(([, score]) => Number(score))) : 0;
     els.scoresContent.innerHTML = `<div class="score-overview"><div class="score-stat"><span>Quiz joués</span><strong>${entries.length}</strong></div><div class="score-stat"><span>Meilleur résultat</span><strong>${best}/10</strong></div></div>
       ${entries.length ? `<div class="score-list">${entries.map(([key, score]) => { const [region, typeId] = key.split("|"); const type = QUESTION_TYPES.find((item) => item.id === typeId); return `<div class="score-row"><span>${regionLabel(region)} • ${type?.label || "Quiz"}</span><strong>${score}/10</strong></div>`; }).join("")}</div>` : '<div class="score-empty">Aucun entraînement joué pour le moment.</div>'}`;
@@ -927,7 +986,14 @@ async function showScores(tab = "classic") {
   } else {
     els.scoresContent.innerHTML = '<div class="score-empty">Chargement des statistiques de duel…</div>';
     try {
-      const { stats } = await api("stats");
+      const response = await api("stats");
+      const stats = Array.isArray(response.stats) ? response.stats.map((item) => ({
+        opponent: String(item?.opponent || "Adversaire").slice(0, 20),
+        wins: boundedInteger(item?.wins, 0, Number.MAX_SAFE_INTEGER, 0),
+        losses: boundedInteger(item?.losses, 0, Number.MAX_SAFE_INTEGER, 0),
+        draws: boundedInteger(item?.draws, 0, Number.MAX_SAFE_INTEGER, 0),
+        played: boundedInteger(item?.played, 0, Number.MAX_SAFE_INTEGER, 0),
+      })) : [];
       const totals = stats.reduce((sum, item) => ({ wins: sum.wins + item.wins, losses: sum.losses + item.losses, draws: sum.draws + item.draws }), { wins: 0, losses: 0, draws: 0 });
       els.scoresContent.innerHTML = `<div class="score-overview duel-score-overview"><div class="score-stat"><span>Victoires</span><strong>${totals.wins}</strong></div><div class="score-stat"><span>Défaites</span><strong>${totals.losses}</strong></div><div class="score-stat"><span>Nuls</span><strong>${totals.draws}</strong></div></div>
         ${stats.length ? `<div class="score-list">${stats.map((item) => `<div class="score-row"><span>${escapeHTML(item.opponent)} • ${item.played} duel${item.played > 1 ? "s" : ""}</span><strong>${item.wins}V · ${item.losses}D · ${item.draws}N</strong></div>`).join("")}</div>` : '<div class="score-empty">Aucun duel terminé pour le moment.</div>'}`;

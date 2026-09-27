@@ -4,6 +4,21 @@ import { getRawDb } from "@/db";
 
 type SubscriptionRow = { endpoint: string; p256dh: string; auth: string };
 
+export function isSafePushEndpoint(value: unknown): value is string {
+  if (typeof value !== "string" || value.length < 20 || value.length > 2048) return false;
+  try {
+    const endpoint = new URL(value);
+    const hostname = endpoint.hostname.toLowerCase().replace(/\.$/, "");
+    const isIpLiteral = hostname.includes(":") || /^\d{1,3}(?:\.\d{1,3}){3}$/.test(hostname);
+    const isLocalName = hostname === "localhost" || hostname.endsWith(".localhost") || hostname.endsWith(".local");
+    return endpoint.protocol === "https:" && (!endpoint.port || endpoint.port === "443")
+      && !endpoint.username && !endpoint.password && !endpoint.hash
+      && hostname.includes(".") && !isIpLiteral && !isLocalName;
+  } catch {
+    return false;
+  }
+}
+
 export async function sendGameNotification(profileId: string, title: string, body: string, url = "/game.html") {
   if (!env.VAPID_SUBJECT || !env.VAPID_SERVER_PUBLIC_KEY || !env.VAPID_SERVER_PRIVATE_KEY) return;
   const db = getRawDb();
@@ -15,6 +30,7 @@ export async function sendGameNotification(profileId: string, title: string, bod
     privateKey: env.VAPID_SERVER_PRIVATE_KEY,
   };
   await Promise.all((rows.results || []).map(async (row) => {
+    if (!isSafePushEndpoint(row.endpoint)) return;
     const subscription: PushSubscription = {
       endpoint: row.endpoint,
       expirationTime: null,
@@ -29,8 +45,8 @@ export async function sendGameNotification(profileId: string, title: string, bod
       if (response.status === 404 || response.status === 410) {
         await db.prepare("DELETE FROM push_subscriptions WHERE endpoint = ?").bind(row.endpoint).run();
       }
-    } catch (error) {
-      console.error("WQC push notification failed", error);
+    } catch {
+      console.error("WQC push notification failed");
     }
   }));
 }

@@ -1,13 +1,13 @@
 "use strict";
 
-const CACHE_NAME = "wqc-v13";
+const CACHE_NAME = "wqc-v14";
 const BASE_URL = new URL("./", self.location.href);
 const APP_SHELL = [
   "./",
   "game.html",
-  "styles.css?v=13",
-  "app.js?v=13",
-  "manifest.webmanifest?v=13",
+  "styles.css?v=14",
+  "app.js?v=14",
+  "manifest.webmanifest?v=14",
   "icons/wqc-logo.svg",
   "icons/wqc-logo-192.png",
   "icons/wqc-logo-512.png",
@@ -37,9 +37,11 @@ self.addEventListener("fetch", (event) => {
   if (event.request.mode === "navigate") {
     event.respondWith(
       fetch(event.request)
-        .then((response) => {
-          const copy = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+        .then(async (response) => {
+          if (response.ok && response.type === "basic") {
+            const copy = response.clone();
+            await caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+          }
           return response;
         })
         .catch(() => caches.match(event.request).then((cached) => cached || caches.match(new URL("game.html", BASE_URL).href))),
@@ -50,9 +52,11 @@ self.addEventListener("fetch", (event) => {
   if (isCountryData) {
     event.respondWith(
       fetch(event.request)
-        .then((response) => {
-          const copy = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+        .then(async (response) => {
+          if (response.ok && response.type === "basic") {
+            const copy = response.clone();
+            await caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+          }
           return response;
         })
         .catch(() => caches.match(event.request)),
@@ -60,9 +64,11 @@ self.addEventListener("fetch", (event) => {
     return;
   }
   event.respondWith(
-    caches.match(event.request).then((cached) => cached || fetch(event.request).then((response) => {
-      const copy = response.clone();
-      caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+    caches.match(event.request).then((cached) => cached || fetch(event.request).then(async (response) => {
+      if (response.ok && response.type === "basic") {
+        const copy = response.clone();
+        await caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+      }
       return response;
     })),
   );
@@ -71,18 +77,21 @@ self.addEventListener("fetch", (event) => {
 self.addEventListener("push", (event) => {
   let data = { title: "World Quizz Challenge", body: "C’est à toi de jouer !", url: "./game.html" };
   try { data = { ...data, ...event.data.json() }; } catch { /* Notification par défaut. */ }
-  event.waitUntil(self.registration.showNotification(data.title, {
-    body: data.body,
+  const title = String(data.title || "World Quizz Challenge").slice(0, 80);
+  const body = String(data.body || "C’est à toi de jouer !").slice(0, 240);
+  const target = safeNotificationTarget(data.url);
+  event.waitUntil(self.registration.showNotification(title, {
+    body,
     icon: new URL("icons/wqc-logo-192.png", BASE_URL).href,
     badge: new URL("icons/wqc-logo-192.png", BASE_URL).href,
-    data: { url: data.url || "./game.html" },
+    data: { url: target },
     tag: "wqc-turn",
   }));
 });
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const target = new URL(event.notification.data?.url || "./game.html", self.location.origin).href;
+  const target = safeNotificationTarget(event.notification.data?.url);
   event.waitUntil(self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(async (clients) => {
     for (const client of clients) {
       if ("focus" in client) { await client.navigate(target); return client.focus(); }
@@ -90,3 +99,17 @@ self.addEventListener("notificationclick", (event) => {
     return self.clients.openWindow(target);
   }));
 });
+
+function safeNotificationTarget(value) {
+  try {
+    const target = new URL(typeof value === "string" ? value : "./game.html", BASE_URL);
+    if (target.origin !== self.location.origin || !target.pathname.endsWith("/game.html")) throw new Error("unsafe target");
+    target.hash = "";
+    const duel = target.searchParams.get("duel");
+    const validDuel = duel && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(duel);
+    target.search = validDuel ? `?duel=${encodeURIComponent(duel)}` : "";
+    return target.href;
+  } catch {
+    return new URL("game.html", BASE_URL).href;
+  }
+}

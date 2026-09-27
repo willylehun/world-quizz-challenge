@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import { getRawDb } from "@/db";
 import { generateDuelQuestions, isDuelDifficulty, type DuelQuestion } from "@/lib/duel";
-import { sendGameNotification } from "@/lib/push";
+import { isSafePushEndpoint, sendGameNotification } from "@/lib/push";
 
 export const runtime = "edge";
 
@@ -15,7 +15,26 @@ type MatchRow = {
   winner_id: string | null; created_at: string; updated_at: string;
 };
 
-const JSON_HEADERS = { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" };
+const MAX_JSON_BODY_BYTES = 16 * 1024;
+const PROFILE_TOKEN_RE = /^[A-Za-z0-9_-]{43}$/;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const WEB_PUSH_KEY_RE = /^[A-Za-z0-9_-]+$/;
+const JSON_HEADERS = {
+  "content-type": "application/json; charset=utf-8",
+  "cache-control": "no-store",
+  "content-security-policy": "default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+  "cross-origin-resource-policy": "same-origin",
+  "referrer-policy": "no-referrer",
+  "x-content-type-options": "nosniff",
+  "x-frame-options": "DENY",
+};
+
+class RequestError extends Error {
+  constructor(public status: number, public publicMessage: string) {
+    super(publicMessage);
+    this.name = "RequestError";
+  }
+}
 
 function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), { status, headers: JSON_HEADERS });
@@ -41,14 +60,33 @@ async function hashToken(token: string) {
 }
 
 async function readBody(request: Request): Promise<Record<string, unknown>> {
-  try { return await request.json() as Record<string, unknown>; } catch { return {}; }
+  const contentType = request.headers.get("content-type") || "";
+  if (!contentType.toLowerCase().startsWith("application/json")) {
+    throw new RequestError(415, "Cette requête doit être envoyée au format JSON.");
+  }
+  const declaredLength = Number(request.headers.get("content-length"));
+  if (Number.isFinite(declaredLength) && declaredLength > MAX_JSON_BODY_BYTES) {
+    throw new RequestError(413, "La requête est trop volumineuse.");
+  }
+  const text = await request.text();
+  if (new TextEncoder().encode(text).byteLength > MAX_JSON_BODY_BYTES) {
+    throw new RequestError(413, "La requête est trop volumineuse.");
+  }
+  if (!text) return {};
+  try {
+    const value = JSON.parse(text) as unknown;
+    if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("invalid shape");
+    return value as Record<string, unknown>;
+  } catch {
+    throw new RequestError(400, "Le contenu JSON de la requête est invalide.");
+  }
 }
 
 async function authenticate(request: Request): Promise<Profile | null> {
   const header = request.headers.get("authorization") || "";
   if (!header.startsWith("Bearer ")) return null;
   const token = header.slice(7).trim();
-  if (token.length < 20) return null;
+  if (!PROFILE_TOKEN_RE.test(token)) return null;
   const row = await getRawDb().prepare(
     "SELECT id, name, stats_reset_at, created_at FROM profiles WHERE token_hash = ? LIMIT 1",
   ).bind(await hashToken(token)).first<Profile>();
@@ -58,7 +96,27 @@ async function authenticate(request: Request): Promise<Profile | null> {
 function pathParts(request: Request) {
   const pathname = new URL(request.url).pathname;
   const suffix = pathname.split("/api/game/")[1] || "";
-  return suffix.split("/").filter(Boolean).map(decodeURIComponent);
+  try {
+    return suffix.split("/").filter(Boolean).map((part) => {
+      const decoded = decodeURIComponent(part);
+      if (decoded.length > 128) throw new Error("path segment too long");
+      return decoded;
+    });
+  } catch {
+    throw new RequestError(400, "Chemin de requête invalide.");
+  }
+}
+
+function isTrustedMutation(request: Request) {
+  const expectedOrigin = new URL(request.url).origin;
+  const origin = request.headers.get("origin");
+  if (origin && origin !== expectedOrigin) return false;
+  const fetchSite = request.headers.get("sec-fetch-site");
+  return !fetchSite || fetchSite === "same-origin" || fetchSite === "none";
+}
+
+function isMatchId(value: string | undefined): value is string {
+  return typeof value === "string" && UUID_RE.test(value);
 }
 
 function parseQuestions(row: MatchRow) { return JSON.parse(row.questions_json) as DuelQuestion[]; }
@@ -142,7 +200,7 @@ async function listMatches(profile: Profile) {
 async function createMatch(request: Request, profile: Profile) {
   const body = await readBody(request);
   const opponentName = normalizeName(body.opponentName);
-  if (!opponentName || !isDuelDifficulty(body.difficulty)) return json({ error: "Adversaire ou difficulté invalide." }, 400);
+  if (!validName(opponentName) || !isDuelDifficulty(body.difficulty)) return json({ error: "Adversaire ou difficulté invalide." }, 400);
   const opponent = await getRawDb().prepare(
     "SELECT id, name, stats_reset_at, created_at FROM profiles WHERE name_norm = ? LIMIT 1",
   ).bind(opponentName.toLocaleLowerCase("fr")).first<Profile>();
@@ -260,7 +318,7 @@ async function answerMatch(request: Request, id: string, profile: Profile) {
   let turnPlayerId: string | null = profile.id;
   let status = "active";
   let notifyId: string | null = null;
-  let notifyBody = "C’est à toi de jouer !";
+  const notifyBody = "C’est à toi de jouer !";
   if (row.phase === "p1_first" && row.question_index === 9) {
     phase = "p2_reply_first"; nextIndex = 0; turnPlayerId = row.player2_id; notifyId = row.player2_id;
   } else if (row.phase === "p2_reply_first" && row.question_index === 9) {
@@ -336,7 +394,9 @@ async function subscribePush(request: Request, profile: Profile) {
   const keys = body.keys && typeof body.keys === "object" ? body.keys as Record<string, unknown> : {};
   const p256dh = typeof keys.p256dh === "string" ? keys.p256dh : "";
   const auth = typeof keys.auth === "string" ? keys.auth : "";
-  if (!endpoint.startsWith("https://") || !p256dh || !auth) return json({ error: "Abonnement de notification invalide." }, 400);
+  const validKeys = p256dh.length >= 40 && p256dh.length <= 256 && auth.length >= 16 && auth.length <= 128
+    && WEB_PUSH_KEY_RE.test(p256dh) && WEB_PUSH_KEY_RE.test(auth);
+  if (!isSafePushEndpoint(endpoint) || !validKeys) return json({ error: "Abonnement de notification invalide." }, 400);
   await getRawDb().prepare(`
     INSERT INTO push_subscriptions (id, profile_id, endpoint, p256dh, auth, created_at) VALUES (?, ?, ?, ?, ?, ?)
     ON CONFLICT(endpoint) DO UPDATE SET profile_id = excluded.profile_id, p256dh = excluded.p256dh, auth = excluded.auth
@@ -347,6 +407,7 @@ async function subscribePush(request: Request, profile: Profile) {
 async function handle(request: Request) {
   try {
     const parts = pathParts(request);
+    if (request.method === "POST" && !isTrustedMutation(request)) return json({ error: "Origine de requête non autorisée." }, 403);
     if (request.method === "POST" && parts[0] === "profile") return await createProfile(request);
     if (request.method === "GET" && parts[0] === "push" && parts[1] === "public-key") {
       return env.VAPID_SERVER_PUBLIC_KEY ? json({ publicKey: env.VAPID_SERVER_PUBLIC_KEY }) : json({ error: "Notifications non configurées." }, 503);
@@ -356,19 +417,21 @@ async function handle(request: Request) {
     if (request.method === "GET" && parts[0] === "me") return json({ profile: { id: profile.id, name: profile.name, createdAt: profile.created_at } });
     if (request.method === "GET" && parts[0] === "matches" && !parts[1]) return await listMatches(profile);
     if (request.method === "POST" && parts[0] === "matches" && !parts[1]) return await createMatch(request, profile);
+    if (parts[0] === "matches" && parts[1] && !isMatchId(parts[1])) return json({ error: "Défi introuvable." }, 404);
     if (request.method === "GET" && parts[0] === "matches" && parts[1] && !parts[2]) return await getMatch(parts[1], profile);
-    if (request.method === "POST" && parts[0] === "matches" && parts[2] === "accept") return await acceptMatch(parts[1], profile);
-    if (request.method === "POST" && parts[0] === "matches" && parts[2] === "decline") return await declineMatch(parts[1], profile);
-    if (request.method === "POST" && parts[0] === "matches" && parts[2] === "cancel") return await cancelMatch(parts[1], profile);
-    if (request.method === "POST" && parts[0] === "matches" && parts[2] === "rematch") return await rematchMatch(parts[1], profile);
-    if (request.method === "POST" && parts[0] === "matches" && parts[2] === "answer") return await answerMatch(request, parts[1], profile);
-    if (request.method === "POST" && parts[0] === "matches" && parts[2] === "erase") return await eraseMatch(parts[1], profile);
+    if (request.method === "POST" && parts[0] === "matches" && parts[1] && parts[2] === "accept") return await acceptMatch(parts[1], profile);
+    if (request.method === "POST" && parts[0] === "matches" && parts[1] && parts[2] === "decline") return await declineMatch(parts[1], profile);
+    if (request.method === "POST" && parts[0] === "matches" && parts[1] && parts[2] === "cancel") return await cancelMatch(parts[1], profile);
+    if (request.method === "POST" && parts[0] === "matches" && parts[1] && parts[2] === "rematch") return await rematchMatch(parts[1], profile);
+    if (request.method === "POST" && parts[0] === "matches" && parts[1] && parts[2] === "answer") return await answerMatch(request, parts[1], profile);
+    if (request.method === "POST" && parts[0] === "matches" && parts[1] && parts[2] === "erase") return await eraseMatch(parts[1], profile);
     if (request.method === "GET" && parts[0] === "stats") return await stats(profile);
     if (request.method === "POST" && parts[0] === "reset-stats") return await resetStats(profile);
     if (request.method === "POST" && parts[0] === "push" && parts[1] === "subscribe") return await subscribePush(request, profile);
     return json({ error: "Route introuvable." }, 404);
   } catch (error) {
-    console.error("WQC API error", error);
+    if (error instanceof RequestError) return json({ error: error.publicMessage }, error.status);
+    console.error("WQC API error", error instanceof Error ? error.name : "UnknownError");
     return json({ error: "Une erreur serveur est survenue. Réessaie dans un instant." }, 500);
   }
 }
