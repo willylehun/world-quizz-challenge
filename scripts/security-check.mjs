@@ -31,6 +31,14 @@ for (const directive of ["Content-Security-Policy:", "frame-ancestors 'none'", "
   if (!headers.includes(directive)) failures.push(`En-tête de sécurité manquant : ${directive}`);
 }
 
+for (const workflow of files.filter((name) => /^\.github\/workflows\/.*\.ya?ml$/.test(name))) {
+  const content = readFileSync(workflow, "utf8");
+  if (/^\s*pull_request_target\s*:/m.test(content)) failures.push(`Déclencheur privilégié interdit : ${workflow}`);
+  for (const line of content.split("\n").filter((value) => /^\s*uses\s*:/.test(value))) {
+    if (!/@[0-9a-f]{40}(?:\s|#|$)/i.test(line)) failures.push(`Action non épinglée à un SHA : ${workflow}`);
+  }
+}
+
 for (const file of files.filter((name) => /\.(html|css|js|mjs|ts|tsx)$/.test(name))) {
   const content = readFileSync(file, "utf8");
   if (/(?:src|href)\s*=\s*["']http:\/\//i.test(content)) failures.push(`Ressource HTTP non sécurisée : ${file}`);
