@@ -22,7 +22,7 @@ Le mode Classique propose 100 niveaux répartis sur 10 difficultés. Atteins le 
 
 RELÈVE LES CHALLENGES
 
-Petit Challenge, Challenge ou Challenge ultime : choisis ton risque et réponds à 10 questions adaptées à la difficulté. Les WQC sont uniquement des points gagnés dans le jeu et ne peuvent pas être achetés ni échangés contre de l’argent.
+Petit Challenge, Challenge ou Challenge ultime : chaque partie est payante en WQC et propose 10 questions dont la difficulté augmente progressivement. Les WQC sont uniquement des points gagnés dans le jeu et ne peuvent pas être achetés ni échangés contre de l’argent.
 
 DÉFIE TES AMIS
 

@@ -19,9 +19,9 @@ const QUESTION_TYPES = [
 ];
 
 const CHALLENGE_TYPES = [
-  { id: "small", name: "Petit Challenge", cost: 50, multiplier: 1, minStars: 3, maxStars: 8, code: "PETIT", hint: "Dès 3★ • gains ×1" },
-  { id: "standard", name: "Challenge", cost: 100, multiplier: 2, minStars: 3, maxStars: 10, code: "CHALLENGE", hint: "Dès 3★ • gains ×2" },
-  { id: "ultimate", name: "Challenge ultime", cost: 500, multiplier: 10, minStars: 5, maxStars: 10, code: "ULTIME", hint: "Dès 5★ • gains ×10" },
+  { id: "small", name: "Petit Challenge", cost: 50, multiplier: 1, minStars: 1, maxStars: 5, stars: [1, 1, 2, 2, 3, 3, 4, 4, 5, 5], code: "PETIT", hint: "Facile → moyen • gains ×1" },
+  { id: "standard", name: "Challenge", cost: 100, multiplier: 2, minStars: 4, maxStars: 8, stars: [4, 4, 5, 5, 6, 6, 7, 7, 8, 8], code: "CHALLENGE", hint: "Moyen → difficile • gains ×2" },
+  { id: "ultimate", name: "Challenge ultime", cost: 500, multiplier: 10, minStars: 7, maxStars: 10, stars: [7, 7, 8, 8, 9, 9, 9, 10, 10, 10], code: "ULTIME", hint: "Difficile → ultime • gains ×10" },
 ];
 
 const FIELD_LABELS = {
@@ -474,8 +474,19 @@ function poolForStars(stars) {
 
 function generateClassicQuestions(level) { return generateQuestions(poolForStars(Math.ceil(level / 10))); }
 
-function challengeStars(challenge) { return challenge.maxStars; }
-function generateChallengeQuestions(challenge) { return generateQuestions(poolForStars(challengeStars(challenge))); }
+function challengeStars(challenge, index = state.questionIndex) {
+  return challenge?.stars?.[Math.min(Math.max(index, 0), 9)] || challenge?.maxStars || 1;
+}
+
+function generateChallengeQuestions(challenge) {
+  const used = new Set(), avoided = recentQuestionIsos(), types = typeSchedule();
+  return challenge.stars.map((stars, index) => {
+    const question = makeQuestion(poolForStars(stars), types[index], used, avoided);
+    question.difficultyStars = stars;
+    used.add(question.answerIso);
+    return question;
+  });
+}
 function challengeReward(challenge) { return 200 * challenge.multiplier; }
 
 function renderRegions() {
@@ -516,21 +527,20 @@ function renderChallengeTypes() {
     return `<button class="choice-card challenge-choice" type="button" data-challenge="${challenge.id}">
       <span class="choice-code">${challenge.code}</span><strong>${challenge.name}</strong>
       <small>${challenge.hint} • 10 questions • objectif 7/10 • gain ${challengeReward(challenge)} WQC</small>
-      <span class="challenge-status ${entry.joined ? "joined" : ""}">${completed ? `Réussi · ${best}/10` : entry.joined ? `Meilleur : ${best}/10` : `${challenge.cost} WQC`}</span>
+      <span class="challenge-status">${completed ? `Meilleur : ${best}/10 • ` : best ? `Meilleur : ${best}/10 • ` : ""}${challenge.cost} WQC la partie</span>
     </button>`;
   }).join("");
 }
 
 function requestChallengeEntry(id) {
-  const challenge = CHALLENGE_TYPES.find((item) => item.id === id), entry = getChallengeData()[id];
+  const challenge = CHALLENGE_TYPES.find((item) => item.id === id);
   if (!challenge) return;
   state.challengeId = id;
-  if (entry.joined) { startChallenge(); return; }
   state.pendingChallengeId = id;
   const enough = getWallet() >= challenge.cost;
   els.challengeEntryTitle.textContent = challenge.name;
   els.challengeEntryCopy.textContent = enough
-    ? `L’inscription coûte ${challenge.cost} WQC. Elle est définitive et lance un challenge de 10 questions. Objectif : 7/10 pour gagner ${challengeReward(challenge)} WQC.`
+    ? `Chaque partie coûte ${challenge.cost} WQC. La difficulté augmente de ${challenge.minStars}★ à ${challenge.maxStars}★ sur 10 questions. Objectif : 7/10 pour gagner ${challengeReward(challenge)} WQC.`
     : `Il faut ${challenge.cost} WQC pour participer. Ton solde actuel est de ${getWallet()} WQC.`;
   els.challengeEntryConfirm.disabled = !enough;
   els.challengeEntryConfirm.textContent = enough ? `Payer ${challenge.cost} WQC` : "Solde insuffisant";
@@ -540,8 +550,6 @@ function requestChallengeEntry(id) {
 function confirmChallengeEntry() {
   const challenge = CHALLENGE_TYPES.find((item) => item.id === state.pendingChallengeId);
   if (!challenge || getWallet() < challenge.cost) return;
-  const data = getChallengeData();
-  data[challenge.id].joined = true; storage.set("wqc-challenge", data);
   setWallet(getWallet() - challenge.cost);
   state.challengeId = challenge.id; state.pendingChallengeId = null;
   els.challengeEntryDialog.close(); startChallenge();
@@ -558,8 +566,8 @@ function startClassic(level) {
 }
 
 function startChallenge() {
-  const challenge = CHALLENGE_TYPES.find((item) => item.id === state.challengeId), data = getChallengeData()[state.challengeId];
-  if (!challenge || !data?.joined) return;
+  const challenge = CHALLENGE_TYPES.find((item) => item.id === state.challengeId);
+  if (!challenge) return;
   state.mode = "challenge"; state.level = null; state.tier = 20;
   state.questions = generateChallengeQuestions(challenge); beginQuiz();
 }
@@ -577,7 +585,8 @@ function renderQuestion() {
   if (state.mode === "classic") els.quizModeLabel.textContent = `Niveau ${state.level} • ${Math.ceil(state.level / 10)}★ • Objectif ${targetForLevel(state.level)}/10`;
   else if (state.mode === "challenge") {
     const challenge = CHALLENGE_TYPES.find((item) => item.id === state.challengeId);
-    els.quizModeLabel.textContent = `${challenge.name} • ${challengeStars(challenge)}★ • Objectif 7/10`;
+    const stars = state.questions[state.questionIndex]?.difficultyStars || challengeStars(challenge);
+    els.quizModeLabel.textContent = `${challenge.name} • ${stars}★ • Difficulté progressive • Objectif 7/10`;
   } else els.quizModeLabel.textContent = `${regionLabel(state.region)} • Entraînement`;
   els.quizProgressLabel.textContent = `Question ${state.questionIndex + 1} / 10`;
   els.liveScore.textContent = String(state.score); els.progressBar.style.width = `${(state.questionIndex + 1) * 10}%`;
@@ -613,7 +622,9 @@ function useJoker(name) {
   if (state.mode === "training" || state.locked || !state.jokers[name]) return;
   state.jokers[name] = false;
   if (name === "switch") {
-    const stars = state.mode === "classic" ? Math.ceil(state.level / 10) : challengeStars(CHALLENGE_TYPES.find((item) => item.id === state.challengeId));
+    const stars = state.mode === "classic"
+      ? Math.ceil(state.level / 10)
+      : state.questions[state.questionIndex]?.difficultyStars || challengeStars(CHALLENGE_TYPES.find((item) => item.id === state.challengeId));
     const used = new Set(state.questions.map((question, index) => index === state.questionIndex ? null : question.answerIso).filter(Boolean));
     const type = QUESTION_TYPES[Math.floor(Math.random() * QUESTION_TYPES.length)];
     state.questions[state.questionIndex] = makeQuestion(poolForStars(stars), type, used, recentQuestionIsos()); renderQuestion();
@@ -646,8 +657,7 @@ function saveChallengeScore() {
   const passed = state.score >= 7;
   const previousBest = Math.max(0, ...Object.values(entry.scores).map(Number));
   entry.scores[20] = Math.max(Number(entry.scores[20] || 0), previousBest, state.score);
-  const alreadyRewarded = Object.values(entry.rewards).some((rewarded) => rewarded === true);
-  if (passed && !alreadyRewarded) {
+  if (passed) {
     state.rewardEarned = challengeReward(challenge); entry.rewards[20] = true; addWallet(state.rewardEarned);
   }
   storage.set("wqc-challenge", data);
@@ -1101,7 +1111,7 @@ async function showScores(tab = "classic") {
     const rows = CHALLENGE_TYPES.map((challenge) => {
       const entry = data[challenge.id], scores = Object.values(entry.scores).map(Number);
       const best = scores.length ? Math.max(...scores) : 0;
-      return `<div class="score-row"><span>${challenge.name}${entry.joined ? "" : " • non inscrit"}</span><strong>${best}/10</strong></div>`;
+      return `<div class="score-row"><span>${challenge.name} • ${challenge.cost} WQC par partie</span><strong>${best}/10</strong></div>`;
     }).join("");
     const completed = CHALLENGE_TYPES.filter((challenge) => Object.values(data[challenge.id].scores).some((score) => Number(score) >= 7)).length;
     els.scoresContent.innerHTML = `<div class="score-overview"><div class="score-stat"><span>Solde disponible</span><strong>${getWallet()} WQC</strong></div><div class="score-stat"><span>Challenges réussis</span><strong>${completed}/3</strong></div></div><div class="score-list">${rows}</div>`;
@@ -1161,7 +1171,7 @@ function handleAction(action) {
   if (action === "retry-training") startTraining();
   if (action === "return-training") { renderTypes(); showScreen("training-type"); }
   if (action === "return-challenge") { renderChallengeTypes(); showScreen("challenge-types"); }
-  if (action === "retry-challenge") startChallenge();
+  if (action === "retry-challenge" && state.challengeId) requestChallengeEntry(state.challengeId);
   if (action === "install") installApp();
   if (action === "close-install") els.installDialog.close();
   if (action === "reset") els.resetDialog.showModal();
