@@ -29,12 +29,6 @@ const QUESTION_TYPES = [
   { from: "leader", to: "country" }, { from: "leader", to: "capital" },
 ] as const;
 
-const LABELS = {
-  country: "Quel est le pays correspondant ?",
-  capital: "Quelle est la capitale correspondante ?",
-  leader: "Qui est le dirigeant effectif correspondant ?",
-} as const;
-
 const CAPITAL_TRAPS: Record<string, string[]> = {
   FR: ["Lyon", "Marseille", "Bordeaux"],
   GB: ["Manchester", "Birmingham", "Édimbourg"],
@@ -139,6 +133,28 @@ function valueFor(country: (typeof COUNTRIES)[number], field: "country" | "capit
   return `${country.leader} — ${country.role}`;
 }
 
+function questionPrompt(
+  country: (typeof COUNTRIES)[number],
+  type: { from: "country" | "capital" | "leader"; to: "country" | "capital" | "leader" },
+) {
+  if (type.from === "country" && type.to === "capital") return `Quelle est la capitale de ${country.country} ?`;
+  if (type.from === "country" && type.to === "leader") return `Qui exerce le pouvoir à la tête de ${country.country} ?`;
+  if (type.from === "capital" && type.to === "country") return `${country.capital} est la capitale de quel pays ?`;
+  if (type.from === "capital" && type.to === "leader") return `Quel dirigeant exerce le pouvoir dans le pays dont la capitale est ${country.capital} ?`;
+  if (type.from === "leader" && type.to === "country") return `Quel pays est dirigé par ${country.leader} (${country.role}) ?`;
+  return `À quelle capitale est associé ${country.leader} (${country.role}) ?`;
+}
+
+export function clarifyDuelQuestionPrompt(question: DuelQuestion) {
+  if (question.prompt.endsWith("?")) return question.prompt;
+  const country = COUNTRIES.find((item) => item.iso === question.answerIso);
+  if (!country) return question.prompt;
+  const fields = ["country", "capital", "leader"] as const;
+  const from = fields.find((field) => valueFor(country, field) === question.prompt);
+  const to = fields.find((field) => valueFor(country, field) === question.correct);
+  return from && to ? questionPrompt(country, { from, to }) : question.prompt;
+}
+
 function rangeForDifficulty(difficulty: DuelDifficulty): [number, number] {
   if (difficulty === "easy") return [0, 40];
   if (difficulty === "medium") return [35, 100];
@@ -185,10 +201,10 @@ export function generateDuelQuestions(difficulty: DuelDifficulty): DuelQuestion[
     const type = typePool[index % typePool.length];
     const wrongs = plausibleWrongs(country, type.to, COUNTRIES);
     return {
-      prompt: valueFor(country, type.from),
+      prompt: questionPrompt(country, type),
       correct: valueFor(country, type.to),
       options: shuffle([valueFor(country, type.to), ...wrongs]),
-      kicker: LABELS[type.to],
+      kicker: type.to === "country" ? "Trouver le pays" : type.to === "capital" ? "Trouver la capitale" : "Trouver le dirigeant",
       answerIso: country.iso,
       difficulty: questionDifficulty,
     };

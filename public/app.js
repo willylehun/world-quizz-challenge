@@ -24,12 +24,6 @@ const CHALLENGE_TYPES = [
   { id: "ultimate", name: "Challenge ultime", cost: 500, multiplier: 10, minStars: 7, maxStars: 10, stars: [7, 7, 8, 8, 9, 9, 9, 10, 10, 10], code: "ULTIME", hint: "Difficile → ultime • gains ×10" },
 ];
 
-const FIELD_LABELS = {
-  country: "Quel est le pays correspondant ?",
-  capital: "Quelle est la capitale correspondante ?",
-  leader: "Qui est le dirigeant effectif correspondant ?",
-};
-
 const CONTINENT_PROGRESS = [
   { id: "Europe", label: "Europe", color: "#4da3ff" },
   { id: "Afrique", label: "Afrique", color: "#f5a623" },
@@ -145,6 +139,7 @@ const state = {
   countries: [], screen: "home", mode: null, region: null, type: null, level: null,
   challengeId: null, tier: null, pendingChallengeId: null,
   questions: [], questionIndex: 0, score: 0, locked: false, rewardEarned: 0,
+  answerFactTimer: null,
   jokers: { switch: true, correct: true, erase: true },
   profile: null, profileToken: null, duelMatch: null, duelLocked: false, duelPoll: null, duelReviewIndex: 0, pendingReportMatchId: null,
   friends: [], randomMatchStatus: null,
@@ -208,6 +203,8 @@ const els = {
   liveScore: document.querySelector("#live-score"), progressBar: document.querySelector("#progress-bar"),
   questionKicker: document.querySelector("#question-kicker"), questionText: document.querySelector("#question-text"),
   answersGrid: document.querySelector("#answers-grid"), feedback: document.querySelector("#feedback"), jokerDock: document.querySelector("#joker-dock"),
+  answerFactToast: document.querySelector("#answer-fact-toast"), answerFactCountry: document.querySelector("#answer-fact-country"),
+  answerFactCapital: document.querySelector("#answer-fact-capital"), answerFactLeader: document.querySelector("#answer-fact-leader"),
   resultScore: document.querySelector("#result-score"), resultRing: document.querySelector("#result-ring"),
   resultEyebrow: document.querySelector("#result-eyebrow"), resultTitle: document.querySelector("#result-title"),
   resultMessage: document.querySelector("#result-message"), resultActions: document.querySelector("#result-actions"),
@@ -284,6 +281,7 @@ function shuffle(items) {
 }
 
 function showScreen(name) {
+  if (name !== "quiz" && name !== "duel-game") cancelAnswerFact();
   if (state.duelPoll) { clearInterval(state.duelPoll); state.duelPoll = null; }
   state.screen = name;
   els.screens.forEach((screen) => screen.classList.toggle("hidden", screen.dataset.screen !== name));
@@ -408,6 +406,37 @@ function valueFor(country, field) {
   return `${country.leader} — ${country.role}`;
 }
 
+function questionPrompt(country, type) {
+  if (type.from === "country" && type.to === "capital") return `Quelle est la capitale de ${country.country} ?`;
+  if (type.from === "country" && type.to === "leader") return `Qui exerce le pouvoir à la tête de ${country.country} ?`;
+  if (type.from === "capital" && type.to === "country") return `${country.capital} est la capitale de quel pays ?`;
+  if (type.from === "capital" && type.to === "leader") return `Quel dirigeant exerce le pouvoir dans le pays dont la capitale est ${country.capital} ?`;
+  if (type.from === "leader" && type.to === "country") return `Quel pays est dirigé par ${country.leader} (${country.role}) ?`;
+  return `À quelle capitale est associé ${country.leader} (${country.role}) ?`;
+}
+
+function cancelAnswerFact() {
+  if (state.answerFactTimer) clearTimeout(state.answerFactTimer);
+  state.answerFactTimer = null;
+  els.answerFactToast?.classList.add("hidden");
+}
+
+function showAnswerFact(answerIso, onComplete) {
+  cancelAnswerFact();
+  const country = state.countries.find((item) => item.iso === answerIso);
+  if (country) {
+    els.answerFactCountry.textContent = country.country;
+    els.answerFactCapital.textContent = `Capitale : ${country.capital}`;
+    els.answerFactLeader.textContent = `Dirigeant : ${country.leader} — ${country.role}`;
+    els.answerFactToast.classList.remove("hidden");
+  }
+  state.answerFactTimer = setTimeout(() => {
+    state.answerFactTimer = null;
+    els.answerFactToast?.classList.add("hidden");
+    onComplete();
+  }, 2000);
+}
+
 function recentQuestionIsos() { return new Set(storage.get("wqc-question-history", []).slice(-120)); }
 
 function rememberQuestions(questions) {
@@ -431,8 +460,8 @@ function makeQuestion(pool, type, usedIso = new Set(), avoidedIso = new Set()) {
     .filter((value, index, items) => value !== valueFor(answer, type.to) && items.indexOf(value) === index)
     .slice(0, 3);
   return {
-    answerIso: answer.iso, prompt: valueFor(answer, type.from), correct: valueFor(answer, type.to),
-    options: shuffle([valueFor(answer, type.to), ...wrongs]), kicker: FIELD_LABELS[type.to], typeId: type.id, context: type,
+    answerIso: answer.iso, prompt: questionPrompt(answer, type), correct: valueFor(answer, type.to),
+    options: shuffle([valueFor(answer, type.to), ...wrongs]), kicker: type.label, typeId: type.id, context: type,
   };
 }
 
@@ -615,7 +644,11 @@ function answerQuestion(selected, auto = false) {
   els.liveScore.textContent = String(state.score);
   els.feedback.textContent = auto ? "Bonne réponse validée par le joker !" : isCorrect ? "Bonne réponse !" : `La bonne réponse était : ${question.correct}`;
   els.feedback.classList.add(isCorrect ? "good" : "bad");
-  setTimeout(() => { state.questionIndex += 1; if (state.questionIndex >= 10) finishQuiz(); else renderQuestion(); }, 1050);
+  showAnswerFact(question.answerIso, () => {
+    state.questionIndex += 1;
+    if (state.questionIndex >= 10) finishQuiz();
+    else renderQuestion();
+  });
 }
 
 function useJoker(name) {
@@ -1055,7 +1088,13 @@ async function answerDuel(answer) {
       els.duelReveal.innerHTML = `<span>Réponse de ${escapeHTML(state.duelMatch.opponentName)}</span><strong>${escapeHTML(result.reveal.opponentAnswer)}</strong>`;
       els.duelReveal.classList.remove("hidden");
     }
-    els.duelNext.textContent = result.complete ? "Voir le résultat" : "Question suivante"; els.duelNext.classList.remove("hidden");
+    const matchId = state.duelMatch.id;
+    showAnswerFact(state.duelMatch.question.answerIso, () => {
+      openDuelMatch(matchId).catch(() => {
+        els.duelNext.textContent = result.complete ? "Voir le résultat" : "Question suivante";
+        els.duelNext.classList.remove("hidden");
+      });
+    });
   } catch (error) { els.duelFeedback.textContent = error.message; els.duelFeedback.classList.add("bad"); state.duelLocked = false; }
 }
 

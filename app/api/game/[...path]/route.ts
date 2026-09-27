@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 import { getRawDb } from "@/db";
-import { generateDuelQuestions, isDuelDifficulty, type DuelQuestion } from "@/lib/duel";
+import { clarifyDuelQuestionPrompt, generateDuelQuestions, isDuelDifficulty, type DuelQuestion } from "@/lib/duel";
 import { isSafePushEndpoint, sendGameNotification } from "@/lib/push";
 
 export const runtime = "edge";
@@ -241,10 +241,10 @@ function publicMatch(row: MatchRow, profile: Profile) {
     player2: { id: row.player2_id, name: row.player2_name, score: row.player2_score },
     eraseAvailable: isPlayer1 ? !row.player1_erase_used : !row.player2_erase_used,
     winnerId: row.winner_id,
-    question: question ? { prompt: question.prompt, options: question.options, kicker: question.kicker, answerIso: question.answerIso, index: row.question_index } : null,
+    question: question ? { prompt: clarifyDuelQuestionPrompt(question), options: question.options, kicker: question.kicker, answerIso: question.answerIso, index: row.question_index } : null,
     review: row.status === "complete" ? questions.map((item, index) => ({
       index,
-      prompt: item.prompt,
+      prompt: clarifyDuelQuestionPrompt(item),
       options: item.options,
       kicker: item.kicker,
       correctAnswer: item.correct,
