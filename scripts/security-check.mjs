@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 
 const tracked = execFileSync("git", ["ls-files", "-z"], { encoding: "utf8" }).split("\0").filter(Boolean);
 const untracked = execFileSync("git", ["ls-files", "--others", "--exclude-standard", "-z"], { encoding: "utf8" }).split("\0").filter(Boolean);
@@ -34,6 +34,14 @@ const frameworkHeaders = readFileSync("next.config.ts", "utf8");
 for (const directive of ["Content-Security-Policy", "frame-ancestors 'none'", "X-Content-Type-Options", "Permissions-Policy", "Referrer-Policy"]) {
   if (!frameworkHeaders.includes(directive)) failures.push(`En-tête framework manquant : ${directive}`);
 }
+const gameRoute = readFileSync("app/game.html/route.ts", "utf8");
+for (const directive of ["Content-Security-Policy", "frame-ancestors 'none'", "X-Content-Type-Options", "Permissions-Policy", "Referrer-Policy"]) {
+  if (!gameRoute.includes(directive)) failures.push(`En-tête de la page de jeu manquant : ${directive}`);
+}
+const serviceWorkerRoute = readFileSync("app/service-worker.js/route.ts", "utf8");
+for (const directive of ["Cache-Control", "no-cache", "Service-Worker-Allowed", "X-Content-Type-Options"]) {
+  if (!serviceWorkerRoute.includes(directive)) failures.push(`Protection du Service Worker manquante : ${directive}`);
+}
 const viteConfig = readFileSync("vite.config.ts", "utf8");
 if (!/assets\s*:\s*{[\s\S]*?binding\s*:\s*["']ASSETS["'][\s\S]*?run_worker_first\s*:\s*true/.test(viteConfig)) {
   failures.push("Le Worker doit précéder les ressources statiques pour appliquer les en-têtes de sécurité.");
@@ -47,7 +55,7 @@ for (const workflow of files.filter((name) => /^\.github\/workflows\/.*\.ya?ml$/
   }
 }
 
-for (const file of files.filter((name) => /\.(html|css|js|mjs|ts|tsx)$/.test(name))) {
+for (const file of files.filter((name) => existsSync(name) && /\.(html|css|js|mjs|ts|tsx)$/.test(name))) {
   const content = readFileSync(file, "utf8");
   if (/(?:src|href)\s*=\s*["']http:\/\//i.test(content)) failures.push(`Ressource HTTP non sécurisée : ${file}`);
   if (/access-control-allow-origin["']?\s*[:=]\s*["']\*/i.test(content)) failures.push(`CORS ouvert détecté : ${file}`);
