@@ -1,0 +1,7 @@
+Première version de World Quizz Challenge :
+• Quiz sur les pays, capitales et dirigeants
+• 100 niveaux classiques et 3 modes Challenge
+• Entraînement par continent
+• Défis asynchrones entre amis avec notifications
+• Statistiques, historique des réponses et match retour
+• Export, suppression du profil, signalement et blocage

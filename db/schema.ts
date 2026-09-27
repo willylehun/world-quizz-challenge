@@ -6,6 +6,7 @@ export const profiles = sqliteTable("profiles", {
   nameNorm: text("name_norm").notNull(),
   tokenHash: text("token_hash").notNull(),
   statsResetAt: text("stats_reset_at"),
+  termsAcceptedAt: text("terms_accepted_at"),
   createdAt: text("created_at").notNull(),
 }, (table) => [
   uniqueIndex("idx_profiles_name_norm").on(table.nameNorm),
@@ -47,6 +48,28 @@ export const pushSubscriptions = sqliteTable("push_subscriptions", {
 }, (table) => [
   uniqueIndex("idx_push_endpoint").on(table.endpoint),
   index("idx_push_profile").on(table.profileId),
+]);
+
+export const profileBlocks = sqliteTable("profile_blocks", {
+  id: text("id").primaryKey(),
+  blockerId: text("blocker_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  blockedId: text("blocked_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  createdAt: text("created_at").notNull(),
+}, (table) => [
+  uniqueIndex("idx_profile_blocks_pair").on(table.blockerId, table.blockedId),
+  index("idx_profile_blocks_blocked").on(table.blockedId),
+]);
+
+export const profileReports = sqliteTable("profile_reports", {
+  id: text("id").primaryKey(),
+  reporterId: text("reporter_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  reportedId: text("reported_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  matchId: text("match_id").references(() => matches.id, { onDelete: "set null" }),
+  reason: text("reason").notNull(),
+  createdAt: text("created_at").notNull(),
+}, (table) => [
+  index("idx_profile_reports_reported").on(table.reportedId, table.createdAt),
+  index("idx_profile_reports_reporter").on(table.reporterId, table.createdAt),
 ]);
 
 export const apiRateLimits = sqliteTable("api_rate_limits", {

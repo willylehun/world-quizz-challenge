@@ -9,11 +9,11 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="WQC" />
     <meta name="description" content="World Quizz Challenge : 100 niveaux, entraînement et défis pour tester ses connaissances des pays, capitales et dirigeants." />
-    <link rel="manifest" href="manifest.webmanifest?v=15" />
+    <link rel="manifest" href="manifest.webmanifest?v=16" />
     <link rel="icon" type="image/svg+xml" href="icons/wqc-logo.svg?v=12" />
     <link rel="apple-touch-icon" href="icons/wqc-logo-192.png" />
     <title>World Quizz Challenge</title>
-    <link rel="stylesheet" href="styles.css?v=15" />
+    <link rel="stylesheet" href="styles.css?v=16" />
   </head>
   <body>
     <div class="app-shell">
@@ -242,6 +242,7 @@
               <button class="secondary-button" type="button" data-action="duel-review">Voir les 20 réponses</button>
               <button class="primary-button" type="button" data-action="duel-rematch">Match retour</button>
             </div>
+            <button class="duel-safety-action" type="button" data-action="request-report-block">Signaler et bloquer ce joueur</button>
           </div>
         </section>
 
@@ -308,6 +309,7 @@
         <form id="profile-form">
           <label for="new-profile-name">Ton pseudo WQC</label>
           <input id="new-profile-name" name="name" minlength="3" maxlength="20" required autocomplete="nickname" placeholder="3 à 20 caractères" />
+          <label class="terms-check"><input type="checkbox" name="acceptedTerms" required /><span>J’accepte les <a href="/conditions-utilisation" target="_blank" rel="noreferrer">règles d’utilisation</a> et je choisis un pseudo respectueux.</span></label>
           <button class="primary-button" type="submit">Créer mon profil</button>
           <p class="form-message" id="profile-form-message" role="status"></p>
         </form>
@@ -324,6 +326,46 @@
       <div class="profile-status"><span>Notifications</span><strong id="notification-status">Non activées</strong></div>
       <button class="primary-button" type="button" data-action="enable-notifications">Activer les notifications</button>
       <small class="privacy-note">Sur iPhone/iPad, installe d’abord WQC sur l’écran d’accueil pour recevoir les notifications.</small>
+      <div class="profile-data-actions">
+        <button class="secondary-button" type="button" data-action="export-profile">Télécharger mes données</button>
+        <a href="/confidentialite">Confidentialité</a>
+        <a href="/conditions-utilisation">Règles d’utilisation</a>
+        <a href="/suppression-compte">Suppression du compte</a>
+      </div>
+      <button class="secondary-button danger-outline profile-delete-button" type="button" data-action="request-profile-deletion">Supprimer mon profil</button>
+    </dialog>
+
+    <dialog id="profile-delete-dialog" class="confirm-dialog">
+      <h2>Supprimer définitivement le profil ?</h2>
+      <p>Cette action supprimera le pseudo, toutes les parties Défi, les réponses, les scores de duel et les abonnements aux notifications. Elle est irréversible.</p>
+      <form id="profile-delete-form">
+        <label for="profile-delete-confirmation">Recopie exactement <strong id="profile-delete-name">ton pseudo</strong></label>
+        <input id="profile-delete-confirmation" name="confirmation" required autocomplete="off" maxlength="20" />
+        <p class="form-message" id="profile-delete-message" role="status"></p>
+        <div class="dialog-actions">
+          <button type="button" class="secondary-button" data-action="cancel-profile-deletion">Annuler</button>
+          <button type="submit" class="danger-button">Supprimer définitivement</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="report-block-dialog" class="confirm-dialog">
+      <h2>Signaler et bloquer ce joueur ?</h2>
+      <p>Les défis en cours entre vos profils seront annulés et aucun nouveau défi ne pourra être envoyé.</p>
+      <form id="report-block-form">
+        <label for="report-reason">Motif du signalement</label>
+        <select id="report-reason" name="reason" required>
+          <option value="offensive_name">Pseudo inapproprié</option>
+          <option value="harassment">Harcèlement</option>
+          <option value="spam">Spam ou invitations abusives</option>
+          <option value="other">Autre comportement inapproprié</option>
+        </select>
+        <p class="form-message" id="report-block-message" role="status"></p>
+        <div class="dialog-actions">
+          <button type="button" class="secondary-button" data-action="cancel-report-block">Annuler</button>
+          <button type="submit" class="danger-button">Signaler et bloquer</button>
+        </div>
+      </form>
     </dialog>
 
     <dialog id="confirm-dialog" class="confirm-dialog">
@@ -353,6 +395,6 @@
     <div id="data-error" class="data-error hidden" role="alert">
       Impossible de charger les questions. Recharge la page pour réessayer.
     </div>
-    <script src="app.js?v=15" defer></script>
+    <script src="app.js?v=16" defer></script>
   </body>
 </html>

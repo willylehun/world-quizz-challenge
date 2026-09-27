@@ -146,7 +146,7 @@ const state = {
   challengeId: null, tier: null, pendingChallengeId: null,
   questions: [], questionIndex: 0, score: 0, locked: false, rewardEarned: 0,
   jokers: { switch: true, correct: true, erase: true },
-  profile: null, profileToken: null, duelMatch: null, duelLocked: false, duelPoll: null, duelReviewIndex: 0,
+  profile: null, profileToken: null, duelMatch: null, duelLocked: false, duelPoll: null, duelReviewIndex: 0, pendingReportMatchId: null,
 };
 
 let deferredInstallPrompt = null;
@@ -221,6 +221,10 @@ const els = {
   profileName: document.querySelector("#profile-name"), profileSetupDialog: document.querySelector("#profile-setup-dialog"),
   profileDialog: document.querySelector("#profile-dialog"), profileDialogName: document.querySelector("#profile-dialog-name"),
   profileForm: document.querySelector("#profile-form"), profileFormMessage: document.querySelector("#profile-form-message"),
+  profileDeleteDialog: document.querySelector("#profile-delete-dialog"), profileDeleteForm: document.querySelector("#profile-delete-form"),
+  profileDeleteName: document.querySelector("#profile-delete-name"), profileDeleteMessage: document.querySelector("#profile-delete-message"),
+  reportBlockDialog: document.querySelector("#report-block-dialog"), reportBlockForm: document.querySelector("#report-block-form"),
+  reportBlockMessage: document.querySelector("#report-block-message"),
   notificationStatus: document.querySelector("#notification-status"), duelForm: document.querySelector("#duel-form"),
   duelFormMessage: document.querySelector("#duel-form-message"), duelLists: document.querySelector("#duel-lists"),
   duelContext: document.querySelector("#duel-context"), duelProgress: document.querySelector("#duel-progress"),
@@ -765,12 +769,54 @@ async function createProfile(event) {
   const submit = els.profileForm.querySelector('button[type="submit"]');
   submit.disabled = true; els.profileFormMessage.textContent = "Création…";
   try {
-    const name = new FormData(els.profileForm).get("name");
-    const data = await api("profile", { method: "POST", body: JSON.stringify({ name }) });
+    const formData = new FormData(els.profileForm);
+    const name = formData.get("name");
+    const acceptedTerms = formData.get("acceptedTerms") === "on";
+    const data = await api("profile", { method: "POST", body: JSON.stringify({ name, acceptedTerms }) });
     state.profileToken = null; state.profile = data.profile;
     storage.remove("wqc-profile-token"); storage.set("wqc-profile", data.profile);
     updateProfileUI(); els.profileSetupDialog.close();
   } catch (error) { els.profileFormMessage.textContent = error.message; }
+  finally { submit.disabled = false; }
+}
+
+async function exportProfile() {
+  try {
+    const response = await fetch(`/api/game/export-profile?_=${Date.now()}`, { cache: "no-store", credentials: "same-origin" });
+    if (!response.ok) {
+      let payload = {};
+      try { payload = await response.json(); } catch { /* Réponse sans JSON. */ }
+      throw new Error(payload.error || "Impossible d’exporter les données.");
+    }
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url; link.download = `wqc-donnees-${state.profile?.name || "profil"}.json`;
+    document.body.append(link); link.click(); link.remove(); URL.revokeObjectURL(url);
+  } catch (error) { els.notificationStatus.textContent = error.message; }
+}
+
+function requestProfileDeletion() {
+  els.profileDeleteName.textContent = state.profile?.name || "ton pseudo";
+  els.profileDeleteForm.reset(); els.profileDeleteMessage.textContent = "";
+  els.profileDialog.close(); els.profileDeleteDialog.showModal();
+}
+
+async function deleteProfile(event) {
+  event.preventDefault();
+  const submit = els.profileDeleteForm.querySelector('button[type="submit"]');
+  const confirmation = new FormData(els.profileDeleteForm).get("confirmation");
+  submit.disabled = true; els.profileDeleteMessage.textContent = "Suppression…";
+  try {
+    await api("delete-profile", { method: "POST", body: JSON.stringify({ confirmation }) });
+    STORAGE_KEYS.forEach((key) => storage.remove(key));
+    storage.remove("wqc-profile"); storage.remove("wqc-profile-token");
+    if (state.duelPoll) { clearInterval(state.duelPoll); state.duelPoll = null; }
+    state.profile = null; state.profileToken = null; state.duelMatch = null;
+    els.profileDeleteDialog.close(); els.profileForm.reset();
+    els.profileFormMessage.textContent = "Profil supprimé. Tu peux créer un nouveau profil si tu le souhaites.";
+    updateProfileUI(); updateBalance(); showScreen("home"); els.profileSetupDialog.showModal();
+  } catch (error) { els.profileDeleteMessage.textContent = error.message; }
   finally { submit.disabled = false; }
 }
 
@@ -780,8 +826,8 @@ function duelCard(match, kind) {
   if (!isDuelId(match.id)) return "";
   const score = match.isPlayer1 ? `${match.player1.score}–${match.player2.score}` : `${match.player2.score}–${match.player1.score}`;
   let actions = `<button class="secondary-button" type="button" data-open-duel="${match.id}">${kind === "complete" ? "Résultat et réponses" : "Ouvrir"}</button>`;
-  if (kind === "invitation") actions = `<button class="secondary-button" type="button" data-cancel-duel="${match.id}">Supprimer</button><button class="primary-button" type="button" data-accept-duel="${match.id}">Accepter</button>`;
-  if (kind === "sent") actions = `<button class="secondary-button danger-outline" type="button" data-cancel-duel="${match.id}">Supprimer la demande</button>`;
+  if (kind === "invitation") actions = `<button class="secondary-button" type="button" data-cancel-duel="${match.id}">Supprimer</button><button class="primary-button" type="button" data-accept-duel="${match.id}">Accepter</button><button class="duel-card-safety" type="button" data-report-duel="${match.id}">Signaler / bloquer</button>`;
+  if (kind === "sent") actions = `<button class="secondary-button danger-outline" type="button" data-cancel-duel="${match.id}">Supprimer la demande</button><button class="duel-card-safety" type="button" data-report-duel="${match.id}">Bloquer</button>`;
   const status = kind === "turn" ? "À toi" : kind === "waiting" ? "En attente" : kind === "sent" ? "Invitation envoyée" : kind === "invitation" ? "Invitation" : score;
   return `<article class="duel-list-card"><div><span>${escapeHTML(DUEL_LABELS[match.difficulty] || match.difficulty)} • ${status}</span><strong>${escapeHTML(match.opponentName)}</strong></div><div class="duel-card-actions">${actions}</div></article>`;
 }
@@ -914,6 +960,20 @@ async function rematchDuel() {
   } catch (error) { els.duelResultFeedback.textContent = error.message; button.disabled = false; }
 }
 
+async function reportAndBlockDuel(event) {
+  event.preventDefault();
+  const matchId = state.pendingReportMatchId || state.duelMatch?.id;
+  if (!matchId) return;
+  const submit = els.reportBlockForm.querySelector('button[type="submit"]');
+  const reason = new FormData(els.reportBlockForm).get("reason");
+  submit.disabled = true; els.reportBlockMessage.textContent = "Envoi du signalement…";
+  try {
+    const result = await api(duelApiPath(matchId, "report-block"), { method: "POST", body: JSON.stringify({ reason }) });
+    els.reportBlockDialog.close(); state.pendingReportMatchId = null; state.duelMatch = null; await openDuelHome(); els.duelFormMessage.textContent = result.message;
+  } catch (error) { els.reportBlockMessage.textContent = error.message; }
+  finally { submit.disabled = false; }
+}
+
 async function answerDuel(answer) {
   if (state.duelLocked || !state.duelMatch?.isTurn) return;
   state.duelLocked = true;
@@ -1024,6 +1084,9 @@ function handleAction(action) {
   if (action === "open-duel") openDuelHome();
   if (action === "profile") { updateProfileUI(); if (!els.profileDialog.open) els.profileDialog.showModal(); }
   if (action === "close-profile") els.profileDialog.close();
+  if (action === "export-profile") exportProfile();
+  if (action === "request-profile-deletion") requestProfileDeletion();
+  if (action === "cancel-profile-deletion") { els.profileDeleteDialog.close(); if (!els.profileDialog.open) els.profileDialog.showModal(); }
   if (action === "enable-notifications") enableNotifications();
   if (action === "duel-next") nextDuelQuestion();
   if (action === "duel-erase") eraseDuel();
@@ -1035,6 +1098,8 @@ function handleAction(action) {
     else { state.duelReviewIndex += 1; renderDuelReview(); }
   }
   if (action === "duel-rematch") rematchDuel();
+  if (action === "request-report-block") { state.pendingReportMatchId = state.duelMatch?.id || null; els.reportBlockMessage.textContent = ""; if (!els.reportBlockDialog.open) els.reportBlockDialog.showModal(); }
+  if (action === "cancel-report-block") { state.pendingReportMatchId = null; els.reportBlockDialog.close(); }
   if (action === "scores") showScores("classic");
   if (action === "close-scores") els.scoresDialog.close();
   if (action === "retry-training") startTraining();
@@ -1097,6 +1162,8 @@ document.addEventListener("click", (event) => {
   if (acceptDuelButton) { changeInvitation(acceptDuelButton.dataset.acceptDuel, "accept"); return; }
   const cancelDuelButton = event.target.closest("[data-cancel-duel]");
   if (cancelDuelButton) { changeInvitation(cancelDuelButton.dataset.cancelDuel, "cancel"); return; }
+  const reportDuelButton = event.target.closest("[data-report-duel]");
+  if (reportDuelButton && isDuelId(reportDuelButton.dataset.reportDuel)) { state.pendingReportMatchId = reportDuelButton.dataset.reportDuel; els.reportBlockMessage.textContent = ""; els.reportBlockDialog.showModal(); return; }
   const jokerButton = event.target.closest("[data-joker]");
   if (jokerButton) { useJoker(jokerButton.dataset.joker); return; }
   const nextButton = event.target.closest("[data-next-level]");
@@ -1114,6 +1181,8 @@ document.addEventListener("keydown", (event) => {
 document.querySelectorAll("[data-score-tab]").forEach((button) => button.addEventListener("click", () => showScores(button.dataset.scoreTab)));
 els.scoresDialog.addEventListener("click", (event) => { if (event.target === els.scoresDialog) els.scoresDialog.close(); });
 els.profileForm.addEventListener("submit", createProfile);
+els.profileDeleteForm.addEventListener("submit", deleteProfile);
+els.reportBlockForm.addEventListener("submit", reportAndBlockDuel);
 els.duelForm.addEventListener("submit", submitDuel);
 els.profileSetupDialog.addEventListener("cancel", (event) => event.preventDefault());
 

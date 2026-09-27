@@ -1,0 +1,1 @@
+ALTER TABLE `profiles` ADD `terms_accepted_at` text;
