@@ -39,7 +39,7 @@ jobs:
           gradle-version: "8.13"
 
       - name: Install Android API 36
-        run: sdkmanager "platforms;android-36"
+        run: "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36"
 
       - name: Validate and build debug bundle
         run: gradle -p android lintDebug bundleDebug --no-daemon --stacktrace
