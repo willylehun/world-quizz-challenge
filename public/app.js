@@ -147,6 +147,7 @@ const state = {
   questions: [], questionIndex: 0, score: 0, locked: false, rewardEarned: 0,
   jokers: { switch: true, correct: true, erase: true },
   profile: null, profileToken: null, duelMatch: null, duelLocked: false, duelPoll: null, duelReviewIndex: 0, pendingReportMatchId: null,
+  friends: [], randomMatchStatus: null,
 };
 
 let deferredInstallPrompt = null;
@@ -202,9 +203,7 @@ const els = {
   screens: [...document.querySelectorAll("[data-screen]")],
   regionGrid: document.querySelector("#region-grid"), typeGrid: document.querySelector("#type-grid"),
   levelsGrid: document.querySelector("#levels-grid"), progressSummary: document.querySelector("#progress-summary"),
-  challengeTypeGrid: document.querySelector("#challenge-type-grid"), challengeTiersGrid: document.querySelector("#challenge-tiers-grid"),
-  challengeProgressSummary: document.querySelector("#challenge-progress-summary"), challengeRules: document.querySelector("#challenge-rules"),
-  selectedChallengeLabel: document.querySelector("#selected-challenge-label"), selectedRegionLabel: document.querySelector("#selected-region-label"),
+  challengeTypeGrid: document.querySelector("#challenge-type-grid"), selectedRegionLabel: document.querySelector("#selected-region-label"),
   quizModeLabel: document.querySelector("#quiz-mode-label"), quizProgressLabel: document.querySelector("#quiz-progress-label"),
   liveScore: document.querySelector("#live-score"), progressBar: document.querySelector("#progress-bar"),
   questionKicker: document.querySelector("#question-kicker"), questionText: document.querySelector("#question-text"),
@@ -227,6 +226,10 @@ const els = {
   reportBlockMessage: document.querySelector("#report-block-message"),
   notificationStatus: document.querySelector("#notification-status"), duelForm: document.querySelector("#duel-form"),
   duelFormMessage: document.querySelector("#duel-form-message"), duelLists: document.querySelector("#duel-lists"),
+  randomDuelForm: document.querySelector("#random-duel-form"), randomDuelSubmit: document.querySelector("#random-duel-submit"),
+  randomDuelCancel: document.querySelector("#random-duel-cancel"), randomDuelMessage: document.querySelector("#random-duel-message"),
+  friendForm: document.querySelector("#friend-form"), friendFormMessage: document.querySelector("#friend-form-message"),
+  friendsList: document.querySelector("#friends-list"), opponentName: document.querySelector("#opponent-name"),
   duelContext: document.querySelector("#duel-context"), duelProgress: document.querySelector("#duel-progress"),
   duelProgressBar: document.querySelector("#duel-progress-bar"), duelPlayerScore: document.querySelector("#duel-player-score"),
   duelOpponentScore: document.querySelector("#duel-opponent-score"), duelKicker: document.querySelector("#duel-kicker"),
@@ -471,14 +474,9 @@ function poolForStars(stars) {
 
 function generateClassicQuestions(level) { return generateQuestions(poolForStars(Math.ceil(level / 10))); }
 
-function challengeStars(challenge, tier) {
-  const progress = (tier - 1) / 19;
-  return Math.min(10, Math.max(challenge.minStars, Math.round(challenge.minStars + progress * (challenge.maxStars - challenge.minStars))));
-}
-
-function generateChallengeQuestions(challenge, tier) { return generateQuestions(poolForStars(challengeStars(challenge, tier))); }
-function challengeBaseReward(tier) { return tier >= 10 ? tier * 10 : tier * 5; }
-function challengeReward(challenge, tier) { return challengeBaseReward(tier) * challenge.multiplier; }
+function challengeStars(challenge) { return challenge.maxStars; }
+function generateChallengeQuestions(challenge) { return generateQuestions(poolForStars(challengeStars(challenge))); }
+function challengeReward(challenge) { return 200 * challenge.multiplier; }
 
 function renderRegions() {
   els.regionGrid.innerHTML = REGION_OPTIONS.map((region) => `
@@ -511,27 +509,14 @@ function renderLevels() {
 function renderChallengeTypes() {
   const data = getChallengeData();
   els.challengeTypeGrid.innerHTML = CHALLENGE_TYPES.map((challenge) => {
-    const joined = data[challenge.id].joined;
+    const entry = data[challenge.id];
+    const scores = Object.values(entry.scores).map(Number);
+    const best = scores.length ? Math.max(...scores) : 0;
+    const completed = best >= 7;
     return `<button class="choice-card challenge-choice" type="button" data-challenge="${challenge.id}">
       <span class="choice-code">${challenge.code}</span><strong>${challenge.name}</strong>
-      <small>${challenge.hint} • ${joined ? `inscrit, palier ${data[challenge.id].unlocked}` : `${challenge.cost} WQC pour participer`}</small>
-      <span class="challenge-status ${joined ? "joined" : ""}">${joined ? "Inscrit" : `${challenge.cost} WQC`}</span>
-    </button>`;
-  }).join("");
-}
-
-function renderChallengeTiers() {
-  const challenge = CHALLENGE_TYPES.find((item) => item.id === state.challengeId), data = getChallengeData()[state.challengeId];
-  if (!challenge || !data?.joined) { renderChallengeTypes(); showScreen("challenge-types"); return; }
-  const completed = Object.keys(data.scores).filter((tier) => Number(data.scores[tier]) >= 7).length;
-  els.selectedChallengeLabel.textContent = `${challenge.name} • gains ×${challenge.multiplier}`;
-  els.challengeProgressSummary.innerHTML = `<strong>${completed}/20</strong><span>paliers réussis</span>`;
-  els.challengeRules.innerHTML = `<span>Objectif 7/10 • difficulté de ${challenge.minStars}★ à ${challenge.maxStars}★</span><span class="legend-stars">3 jokers par palier</span>`;
-  els.challengeTiersGrid.innerHTML = Array.from({ length: 20 }, (_, index) => {
-    const tier = index + 1, score = data.scores[tier], locked = tier > data.unlocked, passed = score >= 7, stars = challengeStars(challenge, tier);
-    const classes = ["level-button", passed ? "completed" : "", tier === data.unlocked ? "current" : ""].filter(Boolean).join(" ");
-    return `<button class="${classes}" type="button" data-challenge-tier="${tier}" ${locked ? "disabled" : ""} aria-label="Palier ${tier}, ${stars} étoiles, gain ${challengeReward(challenge, tier)} WQC${locked ? ", verrouillé" : ""}">
-      <strong>${locked ? "" : tier}</strong><small>${locked ? '<span class="level-lock">●</span>' : `${stars}★ · ${challengeReward(challenge, tier)}◆`}</small>
+      <small>${challenge.hint} • 10 questions • objectif 7/10 • gain ${challengeReward(challenge)} WQC</small>
+      <span class="challenge-status ${entry.joined ? "joined" : ""}">${completed ? `Réussi · ${best}/10` : entry.joined ? `Meilleur : ${best}/10` : `${challenge.cost} WQC`}</span>
     </button>`;
   }).join("");
 }
@@ -540,12 +525,12 @@ function requestChallengeEntry(id) {
   const challenge = CHALLENGE_TYPES.find((item) => item.id === id), entry = getChallengeData()[id];
   if (!challenge) return;
   state.challengeId = id;
-  if (entry.joined) { renderChallengeTiers(); showScreen("challenge-tiers"); return; }
+  if (entry.joined) { startChallenge(); return; }
   state.pendingChallengeId = id;
   const enough = getWallet() >= challenge.cost;
   els.challengeEntryTitle.textContent = challenge.name;
   els.challengeEntryCopy.textContent = enough
-    ? `L’inscription coûte ${challenge.cost} WQC. Elle est définitive et donne accès aux 20 paliers de ce défi.`
+    ? `L’inscription coûte ${challenge.cost} WQC. Elle est définitive et lance un challenge de 10 questions. Objectif : 7/10 pour gagner ${challengeReward(challenge)} WQC.`
     : `Il faut ${challenge.cost} WQC pour participer. Ton solde actuel est de ${getWallet()} WQC.`;
   els.challengeEntryConfirm.disabled = !enough;
   els.challengeEntryConfirm.textContent = enough ? `Payer ${challenge.cost} WQC` : "Solde insuffisant";
@@ -559,7 +544,7 @@ function confirmChallengeEntry() {
   data[challenge.id].joined = true; storage.set("wqc-challenge", data);
   setWallet(getWallet() - challenge.cost);
   state.challengeId = challenge.id; state.pendingChallengeId = null;
-  els.challengeEntryDialog.close(); renderChallengeTiers(); showScreen("challenge-tiers");
+  els.challengeEntryDialog.close(); startChallenge();
 }
 
 function startTraining() {
@@ -572,11 +557,11 @@ function startClassic(level) {
   state.questions = generateClassicQuestions(level); beginQuiz();
 }
 
-function startChallenge(tier) {
+function startChallenge() {
   const challenge = CHALLENGE_TYPES.find((item) => item.id === state.challengeId), data = getChallengeData()[state.challengeId];
-  if (!challenge || !data?.joined || tier > data.unlocked) return;
-  state.mode = "challenge"; state.level = null; state.tier = tier;
-  state.questions = generateChallengeQuestions(challenge, tier); beginQuiz();
+  if (!challenge || !data?.joined) return;
+  state.mode = "challenge"; state.level = null; state.tier = 20;
+  state.questions = generateChallengeQuestions(challenge); beginQuiz();
 }
 
 function beginQuiz() {
@@ -592,7 +577,7 @@ function renderQuestion() {
   if (state.mode === "classic") els.quizModeLabel.textContent = `Niveau ${state.level} • ${Math.ceil(state.level / 10)}★ • Objectif ${targetForLevel(state.level)}/10`;
   else if (state.mode === "challenge") {
     const challenge = CHALLENGE_TYPES.find((item) => item.id === state.challengeId);
-    els.quizModeLabel.textContent = `${challenge.name} • Palier ${state.tier} • ${challengeStars(challenge, state.tier)}★ • Objectif 7/10`;
+    els.quizModeLabel.textContent = `${challenge.name} • ${challengeStars(challenge)}★ • Objectif 7/10`;
   } else els.quizModeLabel.textContent = `${regionLabel(state.region)} • Entraînement`;
   els.quizProgressLabel.textContent = `Question ${state.questionIndex + 1} / 10`;
   els.liveScore.textContent = String(state.score); els.progressBar.style.width = `${(state.questionIndex + 1) * 10}%`;
@@ -628,7 +613,7 @@ function useJoker(name) {
   if (state.mode === "training" || state.locked || !state.jokers[name]) return;
   state.jokers[name] = false;
   if (name === "switch") {
-    const stars = state.mode === "classic" ? Math.ceil(state.level / 10) : challengeStars(CHALLENGE_TYPES.find((item) => item.id === state.challengeId), state.tier);
+    const stars = state.mode === "classic" ? Math.ceil(state.level / 10) : challengeStars(CHALLENGE_TYPES.find((item) => item.id === state.challengeId));
     const used = new Set(state.questions.map((question, index) => index === state.questionIndex ? null : question.answerIso).filter(Boolean));
     const type = QUESTION_TYPES[Math.floor(Math.random() * QUESTION_TYPES.length)];
     state.questions[state.questionIndex] = makeQuestion(poolForStars(stars), type, used, recentQuestionIsos()); renderQuestion();
@@ -659,10 +644,11 @@ function saveClassicScore() {
 function saveChallengeScore() {
   const challenge = CHALLENGE_TYPES.find((item) => item.id === state.challengeId), data = getChallengeData(), entry = data[state.challengeId];
   const passed = state.score >= 7;
-  entry.scores[state.tier] = Math.max(Number(entry.scores[state.tier] || 0), state.score);
-  if (passed && state.tier < 20) entry.unlocked = Math.max(entry.unlocked, state.tier + 1);
-  if (passed && !entry.rewards[state.tier]) {
-    state.rewardEarned = challengeReward(challenge, state.tier); entry.rewards[state.tier] = true; addWallet(state.rewardEarned);
+  const previousBest = Math.max(0, ...Object.values(entry.scores).map(Number));
+  entry.scores[20] = Math.max(Number(entry.scores[20] || 0), previousBest, state.score);
+  const alreadyRewarded = Object.values(entry.rewards).some((rewarded) => rewarded === true);
+  if (passed && !alreadyRewarded) {
+    state.rewardEarned = challengeReward(challenge); entry.rewards[20] = true; addWallet(state.rewardEarned);
   }
   storage.set("wqc-challenge", data);
 }
@@ -677,7 +663,7 @@ function finishQuiz() {
 }
 
 function rewardSentence() {
-  return state.rewardEarned ? ` Tu remportes ${state.rewardEarned} WQC.` : " La récompense de ce niveau a déjà été encaissée.";
+  return state.rewardEarned ? ` Tu remportes ${state.rewardEarned} WQC.` : ` La récompense de ce ${state.mode === "challenge" ? "challenge" : "niveau"} a déjà été encaissée.`;
 }
 
 function renderResult() {
@@ -693,12 +679,11 @@ function renderResult() {
     els.resultActions.innerHTML = `<button class="secondary-button" type="button" data-action="open-classic">Retour</button><button class="primary-button" type="button" data-next-level="${nextLevel}">${passed ? "Niveau suivant" : "Réessayer"}</button>`;
   } else if (state.mode === "challenge") {
     const challenge = CHALLENGE_TYPES.find((item) => item.id === state.challengeId);
-    els.resultEyebrow.textContent = `${challenge.name} • Palier ${state.tier}`; els.resultTitle.textContent = passed ? "Palier réussi !" : "Challenge manqué";
+    els.resultEyebrow.textContent = `${challenge.name} terminé`; els.resultTitle.textContent = passed ? "Challenge réussi !" : "Challenge manqué";
     els.resultMessage.textContent = passed
-      ? `${state.score}/10 : ${state.tier === 20 ? "le dernier palier est accompli" : `le palier ${state.tier + 1} est maintenant débloqué`}.${rewardSentence()}`
+      ? `Objectif atteint avec ${state.score}/10.${rewardSentence()}`
       : "Il fallait obtenir 7/10. Tes jokers seront de nouveau disponibles à la prochaine tentative.";
-    const nextTier = passed && state.tier < 20 ? state.tier + 1 : state.tier;
-    els.resultActions.innerHTML = `<button class="secondary-button" type="button" data-action="return-challenge">Retour</button><button class="primary-button" type="button" data-next-challenge-tier="${nextTier}">${passed && state.tier < 20 ? "Palier suivant" : "Réessayer"}</button>`;
+    els.resultActions.innerHTML = `<button class="secondary-button" type="button" data-action="return-challenge">Retour</button><button class="primary-button" type="button" data-action="retry-challenge">Réessayer</button>`;
   } else {
     els.resultEyebrow.textContent = "Entraînement terminé";
     els.resultTitle.textContent = state.score >= 8 ? "Excellent !" : state.score >= 5 ? "Bien joué !" : "Continue à t’entraîner !";
@@ -836,12 +821,37 @@ function duelSection(title, matches, kind, empty) {
   return `<section class="duel-list-section"><h3>${title}<span>${matches.length}</span></h3>${matches.length ? matches.map((match) => duelCard(match, kind)).join("") : `<p class="duel-empty">${empty}</p>`}</section>`;
 }
 
+function renderFriends(friends) {
+  state.friends = Array.isArray(friends) ? friends : [];
+  els.friendsList.innerHTML = state.friends.length ? state.friends.map((friend) => {
+    if (!isDuelId(friend.id)) return "";
+    return `<article class="friend-row"><strong>${escapeHTML(friend.name)}</strong><div>
+      <button class="secondary-button" type="button" data-select-friend="${encodeURIComponent(friend.name)}">Défier</button>
+      <button class="friend-remove" type="button" data-remove-friend="${friend.id}" aria-label="Retirer ${escapeHTML(friend.name)} de mes amis">×</button>
+    </div></article>`;
+  }).join("") : '<p class="duel-empty">Ajoute un pseudo pour le retrouver ici.</p>';
+}
+
+function renderRandomMatchStatus(status) {
+  state.randomMatchStatus = status?.waiting ? status : null;
+  els.randomDuelCancel.classList.toggle("hidden", !status?.waiting);
+  els.randomDuelSubmit.textContent = status?.waiting ? "Modifier la recherche" : "Inviter un adversaire aléatoire";
+  if (status?.waiting) {
+    const radio = els.randomDuelForm.querySelector(`input[name="randomDifficulty"][value="${status.difficulty}"]`);
+    if (radio) radio.checked = true;
+    const expires = status.expiresAt ? new Date(status.expiresAt).toLocaleDateString("fr-FR") : "";
+    els.randomDuelMessage.textContent = `Recherche ${DUEL_LABELS[status.difficulty] || ""} en attente${expires ? ` jusqu’au ${expires}` : ""}.`;
+  } else if (!els.randomDuelMessage.textContent.includes("Adversaire trouvé")) {
+    els.randomDuelMessage.textContent = "";
+  }
+}
+
 async function openDuelHome() {
   if (!state.profile) { if (!els.profileSetupDialog.open) els.profileSetupDialog.showModal(); return; }
   showScreen("duel-home");
   els.duelLists.innerHTML = '<div class="loading-card">Chargement des défis…</div>';
   try {
-    const { matches } = await api("matches");
+    const [{ matches }, { friends }, randomStatus] = await Promise.all([api("matches"), api("friends"), api("random-match")]);
     const invitations = matches.filter((match) => match.status === "pending" && !match.isPlayer1);
     const sent = matches.filter((match) => match.status === "pending" && match.isPlayer1);
     const turn = matches.filter((match) => match.status === "active" && match.isTurn);
@@ -854,8 +864,51 @@ async function openDuelHome() {
       duelSection("En attente", waiting, "waiting", "Aucun défi en attente."),
       duelSection("Terminés", completed, "complete", "Aucun duel terminé."),
     ].join("");
+    renderFriends(friends);
+    renderRandomMatchStatus(randomStatus);
   } catch (error) { els.duelLists.innerHTML = `<div class="loading-card error-card">${escapeHTML(error.message)}</div>`; }
   state.duelPoll = setInterval(() => { if (state.screen === "duel-home") openDuelHome(); }, 30000);
+}
+
+async function submitRandomDuel(event) {
+  event.preventDefault();
+  const data = new FormData(els.randomDuelForm);
+  els.randomDuelSubmit.disabled = true; els.randomDuelMessage.textContent = "Recherche…";
+  try {
+    const result = await api("random-match", { method: "POST", body: JSON.stringify({ difficulty: data.get("randomDifficulty") }) });
+    await openDuelHome();
+    els.randomDuelMessage.textContent = result.message;
+  } catch (error) { els.randomDuelMessage.textContent = error.message; }
+  finally { els.randomDuelSubmit.disabled = false; }
+}
+
+async function cancelRandomDuel() {
+  els.randomDuelCancel.disabled = true;
+  try {
+    const result = await api("random-match/cancel", { method: "POST", body: "{}" });
+    await openDuelHome(); els.randomDuelMessage.textContent = result.message;
+  } catch (error) { els.randomDuelMessage.textContent = error.message; }
+  finally { els.randomDuelCancel.disabled = false; }
+}
+
+async function submitFriend(event) {
+  event.preventDefault();
+  const submit = els.friendForm.querySelector('button[type="submit"]');
+  const friendName = new FormData(els.friendForm).get("friendName");
+  submit.disabled = true; els.friendFormMessage.textContent = "Ajout…";
+  try {
+    const result = await api("friends", { method: "POST", body: JSON.stringify({ friendName }) });
+    els.friendForm.reset(); await openDuelHome(); els.friendFormMessage.textContent = result.message;
+  } catch (error) { els.friendFormMessage.textContent = error.message; }
+  finally { submit.disabled = false; }
+}
+
+async function removeFriend(id) {
+  if (!isDuelId(id)) return;
+  try {
+    const result = await api(`friends/${encodeURIComponent(id)}/remove`, { method: "POST", body: "{}" });
+    await openDuelHome(); els.friendFormMessage.textContent = result.message;
+  } catch (error) { els.friendFormMessage.textContent = error.message; }
 }
 
 async function submitDuel(event) {
@@ -1046,10 +1099,12 @@ async function showScores(tab = "classic") {
   } else if (tab === "challenge") {
     const data = getChallengeData();
     const rows = CHALLENGE_TYPES.map((challenge) => {
-      const entry = data[challenge.id], passed = Object.values(entry.scores).filter((score) => Number(score) >= 7).length;
-      return `<div class="score-row"><span>${challenge.name}${entry.joined ? "" : " • non inscrit"}</span><strong>${passed}/20</strong></div>`;
+      const entry = data[challenge.id], scores = Object.values(entry.scores).map(Number);
+      const best = scores.length ? Math.max(...scores) : 0;
+      return `<div class="score-row"><span>${challenge.name}${entry.joined ? "" : " • non inscrit"}</span><strong>${best}/10</strong></div>`;
     }).join("");
-    els.scoresContent.innerHTML = `<div class="score-overview"><div class="score-stat"><span>Solde disponible</span><strong>${getWallet()} WQC</strong></div><div class="score-stat"><span>Défis rejouables</span><strong>3 jokers</strong></div></div><div class="score-list">${rows}</div>`;
+    const completed = CHALLENGE_TYPES.filter((challenge) => Object.values(data[challenge.id].scores).some((score) => Number(score) >= 7)).length;
+    els.scoresContent.innerHTML = `<div class="score-overview"><div class="score-stat"><span>Solde disponible</span><strong>${getWallet()} WQC</strong></div><div class="score-stat"><span>Challenges réussis</span><strong>${completed}/3</strong></div></div><div class="score-list">${rows}</div>`;
   } else {
     els.scoresContent.innerHTML = '<div class="score-empty">Chargement des statistiques de duel…</div>';
     try {
@@ -1088,6 +1143,7 @@ function handleAction(action) {
   if (action === "request-profile-deletion") requestProfileDeletion();
   if (action === "cancel-profile-deletion") { els.profileDeleteDialog.close(); if (!els.profileDialog.open) els.profileDialog.showModal(); }
   if (action === "enable-notifications") enableNotifications();
+  if (action === "cancel-random-duel") cancelRandomDuel();
   if (action === "duel-next") nextDuelQuestion();
   if (action === "duel-erase") eraseDuel();
   if (action === "duel-result") renderDuelResult();
@@ -1104,7 +1160,8 @@ function handleAction(action) {
   if (action === "close-scores") els.scoresDialog.close();
   if (action === "retry-training") startTraining();
   if (action === "return-training") { renderTypes(); showScreen("training-type"); }
-  if (action === "return-challenge") { renderChallengeTiers(); showScreen("challenge-tiers"); }
+  if (action === "return-challenge") { renderChallengeTypes(); showScreen("challenge-types"); }
+  if (action === "retry-challenge") startChallenge();
   if (action === "install") installApp();
   if (action === "close-install") els.installDialog.close();
   if (action === "reset") els.resetDialog.showModal();
@@ -1117,7 +1174,7 @@ function handleAction(action) {
   if (action === "confirm-quit") {
     els.confirmDialog.close();
     if (state.mode === "classic") { renderLevels(); showScreen("classic-levels"); }
-    else if (state.mode === "challenge") { renderChallengeTiers(); showScreen("challenge-tiers"); }
+    else if (state.mode === "challenge") { renderChallengeTypes(); showScreen("challenge-types"); }
     else { renderRegions(); showScreen("training-region"); }
   }
 }
@@ -1150,8 +1207,6 @@ document.addEventListener("click", (event) => {
   if (levelButton && !levelButton.disabled) { startClassic(Number(levelButton.dataset.level)); return; }
   const challengeButton = event.target.closest("[data-challenge]");
   if (challengeButton) { requestChallengeEntry(challengeButton.dataset.challenge); return; }
-  const tierButton = event.target.closest("[data-challenge-tier]");
-  if (tierButton && !tierButton.disabled) { startChallenge(Number(tierButton.dataset.challengeTier)); return; }
   const answerButton = event.target.closest("[data-answer]");
   if (answerButton) { answerQuestion(decodeURIComponent(answerButton.dataset.answer)); return; }
   const duelAnswerButton = event.target.closest("[data-duel-answer]");
@@ -1162,14 +1217,21 @@ document.addEventListener("click", (event) => {
   if (acceptDuelButton) { changeInvitation(acceptDuelButton.dataset.acceptDuel, "accept"); return; }
   const cancelDuelButton = event.target.closest("[data-cancel-duel]");
   if (cancelDuelButton) { changeInvitation(cancelDuelButton.dataset.cancelDuel, "cancel"); return; }
+  const selectFriendButton = event.target.closest("[data-select-friend]");
+  if (selectFriendButton) {
+    els.opponentName.value = decodeURIComponent(selectFriendButton.dataset.selectFriend);
+    els.opponentName.focus();
+    els.duelForm.scrollIntoView({ behavior: "smooth", block: "center" });
+    return;
+  }
+  const removeFriendButton = event.target.closest("[data-remove-friend]");
+  if (removeFriendButton) { removeFriend(removeFriendButton.dataset.removeFriend); return; }
   const reportDuelButton = event.target.closest("[data-report-duel]");
   if (reportDuelButton && isDuelId(reportDuelButton.dataset.reportDuel)) { state.pendingReportMatchId = reportDuelButton.dataset.reportDuel; els.reportBlockMessage.textContent = ""; els.reportBlockDialog.showModal(); return; }
   const jokerButton = event.target.closest("[data-joker]");
   if (jokerButton) { useJoker(jokerButton.dataset.joker); return; }
   const nextButton = event.target.closest("[data-next-level]");
   if (nextButton) { startClassic(Number(nextButton.dataset.nextLevel)); return; }
-  const nextChallengeButton = event.target.closest("[data-next-challenge-tier]");
-  if (nextChallengeButton) startChallenge(Number(nextChallengeButton.dataset.nextChallengeTier));
 });
 
 document.addEventListener("keydown", (event) => {
@@ -1184,6 +1246,8 @@ els.profileForm.addEventListener("submit", createProfile);
 els.profileDeleteForm.addEventListener("submit", deleteProfile);
 els.reportBlockForm.addEventListener("submit", reportAndBlockDuel);
 els.duelForm.addEventListener("submit", submitDuel);
+els.randomDuelForm.addEventListener("submit", submitRandomDuel);
+els.friendForm.addEventListener("submit", submitFriend);
 els.profileSetupDialog.addEventListener("cancel", (event) => event.preventDefault());
 
 function registerWebMCP() {

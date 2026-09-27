@@ -15,7 +15,7 @@ Ce document décrit l’état du code préparé. Vérifier une dernière fois le
 | Catégorie Play | Donnée WQC | Collectée | Partagée | Finalité | Requise |
 |---|---|---:|---:|---|---|
 | Informations personnelles → Identifiants utilisateur | Pseudo et identifiant interne | Oui | Non | Fonctionnement du compte et défis | Oui pour le multijoueur |
-| Activité dans l’application → Interactions | Questions, réponses, scores, invitations et résultats | Oui | Non | Fonctionnalité, statistiques et synchronisation des duels | Oui pour les défis |
+| Activité dans l’application → Interactions | Questions, réponses, scores, invitations, liste d’amis, recherches aléatoires et résultats | Oui | Non | Fonctionnalité, statistiques et synchronisation des duels | Oui pour les défis |
 | Contenu généré par l’utilisateur → Autre contenu | Pseudo choisi par le joueur | Oui | Non | Identification auprès des amis | Oui pour le multijoueur |
 | Appareil ou autres identifiants | Abonnement push et identifiant technique anti-abus haché | Oui | Non | Notifications, sécurité et prévention des abus | Notifications facultatives ; anti-abus requis |
 
@@ -25,9 +25,10 @@ La progression solo, le solde WQC et les meilleurs scores restent dans le stocka
 
 - Les profils et données de défis sont conservés tant que le profil existe.
 - Les compteurs anti-abus expirent automatiquement après leur courte fenêtre technique.
+- Les invitations sans réponse et recherches aléatoires expirent automatiquement après sept jours.
 - Les abonnements push sont supprimés avec le profil.
 - L’utilisateur peut exporter ses données serveur avant suppression.
-- La suppression efface le profil, les défis associés, les réponses, les statistiques de duel, les signalements/blocages associés et les abonnements push.
+- La suppression efface le profil, les défis associés, les réponses, les statistiques de duel, les amis, les recherches aléatoires, les signalements/blocages associés et les abonnements push.
 
 ## Réponses de formulaire à confirmer
 

@@ -2,7 +2,7 @@
 
 ## Accès pour l’équipe de validation
 
-L’application ne possède aucun écran de connexion externe et ne nécessite pas de mot de passe. Au premier lancement, le testeur choisit un pseudo unique de 3 à 20 caractères. Les modes Entraînement, Classique et Challenge sont immédiatement accessibles. Pour tester un duel complet, deux profils distincts sur deux navigateurs/appareils sont nécessaires.
+L’application ne possède aucun écran de connexion externe et ne nécessite pas de mot de passe. Au premier lancement, le testeur choisit un pseudo unique de 3 à 20 caractères. Les modes Entraînement, Classique et Challenge sont immédiatement accessibles. Pour tester un duel complet, deux profils distincts sur deux navigateurs/appareils sont nécessaires. Les joueurs peuvent se retrouver par pseudo, s’ajouter à une liste d’amis ou rejoindre une recherche d’adversaire aléatoire par difficulté.
 
 ## Publicités et achats
 

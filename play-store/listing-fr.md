@@ -22,11 +22,11 @@ Le mode Classique propose 100 niveaux répartis sur 10 difficultés. Atteins le 
 
 RELÈVE LES CHALLENGES
 
-Petit Challenge, Challenge ou Challenge ultime : choisis ton risque, franchis jusqu’à 20 paliers et augmente tes récompenses virtuelles. Les WQC sont uniquement des points gagnés dans le jeu et ne peuvent pas être achetés ni échangés contre de l’argent.
+Petit Challenge, Challenge ou Challenge ultime : choisis ton risque et réponds à 10 questions adaptées à la difficulté. Les WQC sont uniquement des points gagnés dans le jeu et ne peuvent pas être achetés ni échangés contre de l’argent.
 
 DÉFIE TES AMIS
 
-Crée un pseudo WQC sans compte externe et invite un ami par son pseudo. Chaque joueur répond à 20 questions en plusieurs tours. Consulte le résultat, revois toutes les réponses et lance un match retour. Une notification peut t’avertir lorsque vient ton tour.
+Crée un pseudo WQC sans compte externe et invite un ami par son pseudo, depuis ta liste d’amis ou grâce à la recherche d’un adversaire aléatoire. Chaque joueur répond à 20 questions en plusieurs tours. Consulte le résultat, revois toutes les réponses et lance un match retour. Une notification peut t’avertir lorsque vient ton tour.
 
 PENSÉ POUR JOUER SEREINEMENT
 

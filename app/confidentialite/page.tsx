@@ -24,6 +24,7 @@ export default function PrivacyPage() {
           <ul>
             <li>Le pseudo WQC, un identifiant interne, la date de création du profil et un jeton d’accès conservé sous forme hachée côté serveur.</li>
             <li>Les invitations, questions, réponses, scores et résultats nécessaires aux défis entre joueurs.</li>
+            <li>La liste d’amis choisie par le joueur et, pendant sept jours au maximum, les recherches d’adversaire aléatoire ou invitations restées sans réponse.</li>
             <li>La progression solo, les meilleurs scores et le solde WQC, conservés uniquement dans le stockage local de l’appareil.</li>
             <li>Un abonnement technique aux notifications push uniquement si le joueur les active volontairement.</li>
             <li>Des identifiants techniques hachés et temporaires utilisés pour limiter les abus, sans conserver l’adresse réseau en clair.</li>
@@ -37,12 +38,12 @@ export default function PrivacyPage() {
 
         <section>
           <h2>Conservation et sécurité</h2>
-          <p>Les données serveur sont conservées tant que le profil existe. Les compteurs anti-abus expirent automatiquement. Les échanges utilisent HTTPS et la session repose sur un cookie sécurisé, non accessible au JavaScript. Les données locales restent sur l’appareil jusqu’à leur réinitialisation, leur suppression ou l’effacement des données du navigateur.</p>
+          <p>Les données serveur sont conservées tant que le profil existe. Les invitations non acceptées et recherches d’adversaire aléatoire expirent automatiquement après sept jours. Les compteurs anti-abus expirent également. Les échanges utilisent HTTPS et la session repose sur un cookie sécurisé, non accessible au JavaScript. Les données locales restent sur l’appareil jusqu’à leur réinitialisation, leur suppression ou l’effacement des données du navigateur.</p>
         </section>
 
         <section>
           <h2>Vos choix et vos droits</h2>
-          <p>Depuis le menu Profil, le joueur peut télécharger une copie de ses données serveur ou supprimer définitivement son profil. La suppression efface le profil, ses défis, ses réponses, ses scores de duel et ses abonnements aux notifications. Elle est aussi accessible depuis la page Web dédiée.</p>
+          <p>Depuis le menu Profil, le joueur peut télécharger une copie de ses données serveur ou supprimer définitivement son profil. La suppression efface le profil, ses défis, ses réponses, ses scores de duel, sa liste d’amis, ses recherches aléatoires et ses abonnements aux notifications. Elle est aussi accessible depuis la page Web dédiée.</p>
           <div className="legal-actions">
             <a className="legal-primary" href="/suppression-compte">Supprimer un profil</a>
             <a href="/game.html">Ouvrir le jeu</a>

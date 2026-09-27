@@ -22,6 +22,7 @@ const PROFILE_TOKEN_RE = /^[A-Za-z0-9_-]{43}$/;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const WEB_PUSH_KEY_RE = /^[A-Za-z0-9_-]+$/;
 const REPORT_REASONS = new Set(["offensive_name", "harassment", "spam", "other"]);
+const PENDING_REQUEST_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const JSON_HEADERS = {
   "content-type": "application/json; charset=utf-8",
   "cache-control": "no-store",
@@ -192,6 +193,19 @@ function isMatchId(value: string | undefined): value is string {
   return typeof value === "string" && UUID_RE.test(value);
 }
 
+function pendingRequestCutoff() {
+  return new Date(Date.now() - PENDING_REQUEST_TTL_MS).toISOString();
+}
+
+async function cleanupExpiredRequests() {
+  const cutoff = pendingRequestCutoff();
+  const db = getRawDb();
+  await db.batch([
+    db.prepare("DELETE FROM matches WHERE status = 'pending' AND created_at < ?").bind(cutoff),
+    db.prepare("DELETE FROM random_match_queue WHERE created_at < ?").bind(cutoff),
+  ]);
+}
+
 function parseQuestions(row: MatchRow) { return JSON.parse(row.questions_json) as DuelQuestion[]; }
 function parseAnswers(value: string) { try { return JSON.parse(value) as Answer[]; } catch { return []; } }
 
@@ -280,6 +294,7 @@ async function rotateLegacySession(auth: AuthContext) {
 }
 
 async function listMatches(profile: Profile) {
+  await cleanupExpiredRequests();
   const result = await getRawDb().prepare(`
     SELECT m.*, p1.name AS player1_name, p2.name AS player2_name
     FROM matches m JOIN profiles p1 ON p1.id = m.player1_id JOIN profiles p2 ON p2.id = m.player2_id
@@ -289,6 +304,7 @@ async function listMatches(profile: Profile) {
 }
 
 async function createMatch(request: Request, profile: Profile) {
+  await cleanupExpiredRequests();
   const body = await readBody(request);
   const opponentName = normalizeName(body.opponentName);
   if (!validName(opponentName) || !isDuelDifficulty(body.difficulty)) return json({ error: "Adversaire ou difficulté invalide." }, 400);
@@ -310,16 +326,162 @@ async function createMatch(request: Request, profile: Profile) {
   const id = crypto.randomUUID();
   const now = new Date().toISOString();
   const questions = generateDuelQuestions(body.difficulty);
-  await getRawDb().prepare(`
-    INSERT INTO matches (id, player1_id, player2_id, difficulty, status, phase, turn_player_id, question_index,
-      questions_json, player1_answers_json, player2_answers_json, created_at, updated_at)
-    VALUES (?, ?, ?, ?, 'pending', 'awaiting_acceptance', ?, 0, ?, '[]', '[]', ?, ?)
-  `).bind(id, profile.id, opponent.id, body.difficulty, opponent.id, JSON.stringify(questions), now, now).run();
+  const db = getRawDb();
+  await db.batch([
+    db.prepare(`
+      INSERT INTO matches (id, player1_id, player2_id, difficulty, status, phase, turn_player_id, question_index,
+        questions_json, player1_answers_json, player2_answers_json, created_at, updated_at)
+      VALUES (?, ?, ?, ?, 'pending', 'awaiting_acceptance', ?, 0, ?, '[]', '[]', ?, ?)
+    `).bind(id, profile.id, opponent.id, body.difficulty, opponent.id, JSON.stringify(questions), now, now),
+    db.prepare("DELETE FROM random_match_queue WHERE profile_id = ?").bind(profile.id),
+  ]);
   await sendGameNotification(opponent.id, "Nouveau défi WQC", `${profile.name} t’invite à un duel.`, `/game.html?duel=${id}`);
   return json({ id, message: `Invitation envoyée à ${opponent.name}.` }, 201);
 }
 
+async function randomMatchStatus(profile: Profile) {
+  await cleanupExpiredRequests();
+  const row = await getRawDb().prepare(
+    "SELECT difficulty, created_at FROM random_match_queue WHERE profile_id = ? LIMIT 1",
+  ).bind(profile.id).first<{ difficulty: string; created_at: string }>();
+  return json({
+    waiting: Boolean(row),
+    difficulty: row?.difficulty || null,
+    createdAt: row?.created_at || null,
+    expiresAt: row ? new Date(new Date(row.created_at).getTime() + PENDING_REQUEST_TTL_MS).toISOString() : null,
+  });
+}
+
+async function findRandomMatch(request: Request, profile: Profile) {
+  await cleanupExpiredRequests();
+  const body = await readBody(request);
+  if (!isDuelDifficulty(body.difficulty)) return json({ error: "Difficulté invalide." }, 400);
+  const difficulty = body.difficulty;
+  const db = getRawDb();
+  const candidates = await db.prepare(`
+    SELECT q.profile_id, p.name
+    FROM random_match_queue q
+    JOIN profiles p ON p.id = q.profile_id
+    WHERE q.profile_id != ? AND q.difficulty = ?
+      AND NOT EXISTS (
+        SELECT 1 FROM profile_blocks b
+        WHERE (b.blocker_id = ? AND b.blocked_id = q.profile_id)
+           OR (b.blocker_id = q.profile_id AND b.blocked_id = ?)
+      )
+      AND NOT EXISTS (
+        SELECT 1 FROM matches m
+        WHERE m.status IN ('pending', 'active')
+          AND ((m.player1_id = ? AND m.player2_id = q.profile_id)
+            OR (m.player1_id = q.profile_id AND m.player2_id = ?))
+      )
+    ORDER BY q.created_at ASC
+    LIMIT 10
+  `).bind(profile.id, difficulty, profile.id, profile.id, profile.id, profile.id)
+    .all<{ profile_id: string; name: string }>();
+
+  for (const candidate of candidates.results || []) {
+    const claimed = await db.prepare(
+      "DELETE FROM random_match_queue WHERE profile_id = ? AND difficulty = ? RETURNING profile_id",
+    ).bind(candidate.profile_id, difficulty).first<{ profile_id: string }>();
+    if (!claimed) continue;
+    const id = crypto.randomUUID();
+    const now = new Date().toISOString();
+    const questions = generateDuelQuestions(difficulty);
+    try {
+      await db.batch([
+        db.prepare(`
+          INSERT INTO matches (id, player1_id, player2_id, difficulty, status, phase, turn_player_id, question_index,
+            questions_json, player1_answers_json, player2_answers_json, created_at, updated_at)
+          VALUES (?, ?, ?, ?, 'pending', 'awaiting_acceptance', ?, 0, ?, '[]', '[]', ?, ?)
+        `).bind(id, profile.id, candidate.profile_id, difficulty, candidate.profile_id, JSON.stringify(questions), now, now),
+        db.prepare("DELETE FROM random_match_queue WHERE profile_id = ?").bind(profile.id),
+      ]);
+    } catch (error) {
+      await db.prepare(
+        "INSERT INTO random_match_queue (profile_id, difficulty, created_at) VALUES (?, ?, ?) ON CONFLICT(profile_id) DO NOTHING",
+      ).bind(candidate.profile_id, difficulty, now).run();
+      throw error;
+    }
+    await sendGameNotification(
+      candidate.profile_id,
+      "Adversaire aléatoire trouvé",
+      `${profile.name} veut t’affronter en niveau ${difficulty === "easy" ? "facile" : difficulty === "medium" ? "moyen" : difficulty === "hard" ? "difficile" : "ultime"}.`,
+      `/game.html?duel=${id}`,
+    );
+    return json({ matched: true, id, message: `Adversaire trouvé : invitation envoyée à ${candidate.name}.` }, 201);
+  }
+
+  const now = new Date().toISOString();
+  await db.prepare(`
+    INSERT INTO random_match_queue (profile_id, difficulty, created_at) VALUES (?, ?, ?)
+    ON CONFLICT(profile_id) DO UPDATE SET difficulty = excluded.difficulty, created_at = excluded.created_at
+  `).bind(profile.id, difficulty, now).run();
+  return json({
+    matched: false,
+    message: "Recherche lancée. Le premier joueur disponible sur cette difficulté recevra ton invitation.",
+    expiresAt: new Date(Date.now() + PENDING_REQUEST_TTL_MS).toISOString(),
+  }, 202);
+}
+
+async function cancelRandomMatch(profile: Profile) {
+  const result = await getRawDb().prepare(
+    "DELETE FROM random_match_queue WHERE profile_id = ?",
+  ).bind(profile.id).run();
+  return json({ message: result.meta.changes ? "Recherche aléatoire annulée." : "Aucune recherche aléatoire en attente." });
+}
+
+async function listFriends(profile: Profile) {
+  const result = await getRawDb().prepare(`
+    SELECT p.id, p.name, f.created_at
+    FROM profile_friends f
+    JOIN profiles p ON p.id = f.friend_id
+    WHERE f.owner_id = ?
+    ORDER BY p.name COLLATE NOCASE ASC
+    LIMIT 100
+  `).bind(profile.id).all<{ id: string; name: string; created_at: string }>();
+  return json({
+    friends: (result.results || []).map((friend) => ({
+      id: friend.id,
+      name: friend.name,
+      addedAt: friend.created_at,
+    })),
+  });
+}
+
+async function addFriend(request: Request, profile: Profile) {
+  const body = await readBody(request);
+  const friendName = normalizeName(body.friendName);
+  if (!validName(friendName)) return json({ error: "Entre un pseudo WQC valide." }, 400);
+  const friend = await getRawDb().prepare(
+    "SELECT id, name, stats_reset_at, terms_accepted_at, created_at FROM profiles WHERE name_norm = ? LIMIT 1",
+  ).bind(friendName.toLocaleLowerCase("fr")).first<Profile>();
+  if (!friend) return json({ error: "Aucun profil WQC ne porte ce pseudo." }, 404);
+  if (friend.id === profile.id) return json({ error: "Tu ne peux pas t’ajouter toi-même." }, 400);
+  const blocked = await getRawDb().prepare(`
+    SELECT id FROM profile_blocks
+    WHERE (blocker_id = ? AND blocked_id = ?) OR (blocker_id = ? AND blocked_id = ?) LIMIT 1
+  `).bind(profile.id, friend.id, friend.id, profile.id).first<{ id: string }>();
+  if (blocked) return json({ error: "Ce joueur n’est pas disponible." }, 403);
+  const result = await getRawDb().prepare(`
+    INSERT INTO profile_friends (id, owner_id, friend_id, created_at) VALUES (?, ?, ?, ?)
+    ON CONFLICT(owner_id, friend_id) DO NOTHING
+  `).bind(crypto.randomUUID(), profile.id, friend.id, new Date().toISOString()).run();
+  return json({
+    friend: { id: friend.id, name: friend.name },
+    message: result.meta.changes ? `${friend.name} a été ajouté à tes amis.` : `${friend.name} est déjà dans tes amis.`,
+  }, result.meta.changes ? 201 : 200);
+}
+
+async function removeFriend(friendId: string, profile: Profile) {
+  const result = await getRawDb().prepare(
+    "DELETE FROM profile_friends WHERE owner_id = ? AND friend_id = ?",
+  ).bind(profile.id, friendId).run();
+  if (!result.meta.changes) return json({ error: "Cet ami n’est plus dans ta liste." }, 404);
+  return json({ message: "Ami retiré de la liste." });
+}
+
 async function acceptMatch(id: string, profile: Profile) {
+  await cleanupExpiredRequests();
   const row = await loadMatch(id);
   if (!row || row.player2_id !== profile.id || row.status !== "pending") return json({ error: "Cette invitation n’est plus disponible." }, 409);
   const now = new Date().toISOString();
@@ -328,6 +490,7 @@ async function acceptMatch(id: string, profile: Profile) {
     WHERE id = ? AND player2_id = ? AND status = 'pending'
   `).bind(now, id, profile.id).run();
   if (!result.meta.changes) return json({ error: "Cette invitation a déjà été traitée." }, 409);
+  await getRawDb().prepare("DELETE FROM random_match_queue WHERE profile_id IN (?, ?)").bind(row.player1_id, row.player2_id).run();
   await sendGameNotification(row.player1_id, "Défi accepté", `${profile.name} a accepté. C’est à toi de jouer !`, `/game.html?duel=${id}`);
   return json({ message: "Défi accepté." });
 }
@@ -355,6 +518,11 @@ async function rematchMatch(id: string, profile: Profile) {
   if (!previous || !isParticipant(previous, profile) || previous.status !== "complete") return json({ error: "Ce match retour n’est pas disponible." }, 409);
   const opponentId = previous.player1_id === profile.id ? previous.player2_id : previous.player1_id;
   const opponentName = previous.player1_id === profile.id ? previous.player2_name : previous.player1_name;
+  const blocked = await getRawDb().prepare(`
+    SELECT id FROM profile_blocks
+    WHERE (blocker_id = ? AND blocked_id = ?) OR (blocker_id = ? AND blocked_id = ?) LIMIT 1
+  `).bind(profile.id, opponentId, opponentId, profile.id).first<{ id: string }>();
+  if (blocked) return json({ error: "Ce joueur n’est pas disponible pour un match retour." }, 403);
   const duplicate = await getRawDb().prepare(`
     SELECT id FROM matches WHERE status IN ('pending','active')
     AND ((player1_id = ? AND player2_id = ?) OR (player1_id = ? AND player2_id = ?)) LIMIT 1
@@ -373,6 +541,7 @@ async function rematchMatch(id: string, profile: Profile) {
 }
 
 async function getMatch(id: string, profile: Profile) {
+  await cleanupExpiredRequests();
   const row = await loadMatch(id);
   if (!row || !isParticipant(row, profile)) return json({ error: "Défi introuvable." }, 404);
   return json({ match: publicMatch(row, profile) });
@@ -506,6 +675,11 @@ async function reportAndBlockMatch(request: Request, id: string, profile: Profil
       WHERE status IN ('pending', 'active')
         AND ((player1_id = ? AND player2_id = ?) OR (player1_id = ? AND player2_id = ?))
     `).bind(now, profile.id, reportedId, reportedId, profile.id),
+    db.prepare(`
+      DELETE FROM profile_friends
+      WHERE (owner_id = ? AND friend_id = ?) OR (owner_id = ? AND friend_id = ?)
+    `).bind(profile.id, reportedId, reportedId, profile.id),
+    db.prepare("DELETE FROM random_match_queue WHERE profile_id IN (?, ?)").bind(profile.id, reportedId),
   ]);
   return json({ message: "Le joueur a été signalé et bloqué. Aucun nouveau défi ne sera possible entre ces profils." });
 }
@@ -527,6 +701,14 @@ async function exportProfileData(profile: Profile) {
     FROM profile_blocks b JOIN profiles p ON p.id = b.blocked_id
     WHERE b.blocker_id = ? ORDER BY b.created_at ASC
   `).bind(profile.id).all<{ blocked_name: string; created_at: string }>();
+  const friends = await getRawDb().prepare(`
+    SELECT p.name, f.created_at
+    FROM profile_friends f JOIN profiles p ON p.id = f.friend_id
+    WHERE f.owner_id = ? ORDER BY f.created_at ASC
+  `).bind(profile.id).all<{ name: string; created_at: string }>();
+  const randomQueue = await getRawDb().prepare(
+    "SELECT difficulty, created_at FROM random_match_queue WHERE profile_id = ? LIMIT 1",
+  ).bind(profile.id).first<{ difficulty: string; created_at: string }>();
   return json({
     exportedAt: new Date().toISOString(),
     profile: {
@@ -539,6 +721,8 @@ async function exportProfileData(profile: Profile) {
     notifications: { activeSubscriptions: Number(push?.count || 0) },
     reports: reports.results || [],
     blockedProfiles: blocks.results || [],
+    friends: friends.results || [],
+    randomOpponentRequest: randomQueue || null,
     matches: (result.results || []).map((row) => publicMatch(row, profile)),
   }, 200, {
     "content-disposition": `attachment; filename="wqc-data-${profile.id}.json"`,
@@ -552,13 +736,15 @@ async function deleteProfile(request: Request, profile: Profile) {
     return json({ error: "Recopie exactement ton pseudo pour confirmer la suppression." }, 400);
   }
   const db = getRawDb();
-  const rateLimitScopes = ["profile-write", "match-proposal", "stats-reset", "push-subscribe", "profile-report", "profile-delete"];
+  const rateLimitScopes = ["profile-write", "match-proposal", "random-match", "friend-write", "stats-reset", "push-subscribe", "profile-report", "profile-delete"];
   const rateLimitKeys = await Promise.all(rateLimitScopes.map((scope) => rateLimitKey(scope, profile.id)));
   const placeholders = rateLimitKeys.map(() => "?").join(", ");
   await db.batch([
     db.prepare("DELETE FROM push_subscriptions WHERE profile_id = ?").bind(profile.id),
     db.prepare("DELETE FROM profile_reports WHERE reporter_id = ? OR reported_id = ?").bind(profile.id, profile.id),
     db.prepare("DELETE FROM profile_blocks WHERE blocker_id = ? OR blocked_id = ?").bind(profile.id, profile.id),
+    db.prepare("DELETE FROM profile_friends WHERE owner_id = ? OR friend_id = ?").bind(profile.id, profile.id),
+    db.prepare("DELETE FROM random_match_queue WHERE profile_id = ?").bind(profile.id),
     db.prepare("DELETE FROM matches WHERE player1_id = ? OR player2_id = ?").bind(profile.id, profile.id),
     db.prepare(`DELETE FROM api_rate_limits WHERE bucket_key IN (${placeholders})`).bind(...rateLimitKeys),
     db.prepare("DELETE FROM profiles WHERE id = ?").bind(profile.id),
@@ -602,11 +788,33 @@ async function handle(request: Request) {
     const profile = auth.profile;
     if (request.method === "POST") await enforceRateLimit("profile-write", profile.id, 120, 60);
     if (request.method === "POST" && parts[0] === "session") return await rotateLegacySession(auth);
-    if (request.method === "GET" && parts[0] === "me") return json({ profile: { id: profile.id, name: profile.name, createdAt: profile.created_at } });
+    if (request.method === "GET" && parts[0] === "me") {
+      await cleanupExpiredRequests();
+      return json({ profile: { id: profile.id, name: profile.name, createdAt: profile.created_at } });
+    }
     if (request.method === "GET" && parts[0] === "matches" && !parts[1]) return await listMatches(profile);
     if (request.method === "POST" && parts[0] === "matches" && !parts[1]) {
       await enforceRateLimit("match-proposal", profile.id, 20, 60 * 60);
       return await createMatch(request, profile);
+    }
+    if (request.method === "GET" && parts[0] === "random-match" && !parts[1]) return await randomMatchStatus(profile);
+    if (request.method === "POST" && parts[0] === "random-match" && !parts[1]) {
+      await enforceRateLimit("random-match", profile.id, 20, 60 * 60);
+      return await findRandomMatch(request, profile);
+    }
+    if (request.method === "POST" && parts[0] === "random-match" && parts[1] === "cancel") {
+      await enforceRateLimit("random-match", profile.id, 20, 60 * 60);
+      return await cancelRandomMatch(profile);
+    }
+    if (request.method === "GET" && parts[0] === "friends" && !parts[1]) return await listFriends(profile);
+    if (request.method === "POST" && parts[0] === "friends" && !parts[1]) {
+      await enforceRateLimit("friend-write", profile.id, 30, 60 * 60);
+      return await addFriend(request, profile);
+    }
+    if (parts[0] === "friends" && parts[1] && !isMatchId(parts[1])) return json({ error: "Ami introuvable." }, 404);
+    if (request.method === "POST" && parts[0] === "friends" && parts[1] && parts[2] === "remove") {
+      await enforceRateLimit("friend-write", profile.id, 30, 60 * 60);
+      return await removeFriend(parts[1], profile);
     }
     if (parts[0] === "matches" && parts[1] && !isMatchId(parts[1])) return json({ error: "Défi introuvable." }, 404);
     if (request.method === "GET" && parts[0] === "matches" && parts[1] && !parts[2]) return await getMatch(parts[1], profile);

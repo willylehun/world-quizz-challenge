@@ -435,13 +435,15 @@ dialog::backdrop { background: rgba(1, 6, 14, .78); backdrop-filter: blur(6px); 
 .duel-heading { grid-template-columns: auto 1fr auto; }
 .notify-button { white-space: nowrap; }
 .duel-layout { display: grid; grid-template-columns: minmax(280px, .72fr) minmax(360px, 1.28fr); gap: 24px; padding-bottom: 35px; }
+.duel-tools { display: grid; gap: 16px; align-content: start; }
 .duel-create-card, .duel-list-section, .loading-card {
   background: rgba(12,32,57,.8); border: 1px solid var(--line); border-radius: 20px; padding: 24px;
 }
 .duel-create-card { align-self: start; display: grid; gap: 14px; }
 .duel-create-card h3, .duel-list-section h3 { margin: 0; font-size: 1.35rem; }
+.duel-card-copy { margin: 0; color: var(--muted); font-size: .88rem; line-height: 1.5; }
 .duel-create-card label, .profile-dialog label { color: var(--muted); font-size: .84rem; font-weight: 750; }
-.duel-create-card > input, .profile-dialog input {
+.duel-create-card > input, .friend-add-form input, .profile-dialog input {
   width: 100%; border: 1px solid var(--line); border-radius: 12px; background: rgba(4,13,27,.72); color: var(--ink); padding: 13px 14px; font: inherit;
 }
 .duel-create-card fieldset { margin: 2px 0; padding: 0; border: 0; }
@@ -453,6 +455,15 @@ dialog::backdrop { background: rgba(1, 6, 14, .78); backdrop-filter: blur(6px); 
 .duel-difficulties small { color: var(--muted); font-weight: 500; }
 .duel-difficulties input:checked + span { border-color: var(--teal); background: var(--teal-soft); }
 .form-message { min-height: 1.3em; margin: 0; color: var(--gold); font-size: .88rem; }
+.request-expiry { color: var(--muted); line-height: 1.45; }
+.friend-add-form { display: grid; gap: 10px; }
+.friend-add-form > div { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+.friends-card { gap: 12px; }
+.friend-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 0; border-top: 1px solid var(--line); }
+.friend-row > div { display: flex; align-items: center; gap: 7px; }
+.friend-row button { padding: 8px 11px; }
+.friend-remove { width: 34px; height: 34px; border: 1px solid rgba(251,113,133,.25); border-radius: 9px; color: var(--red); background: transparent; cursor: pointer; font-size: 1.2rem; }
+.friend-remove:hover { background: rgba(251,113,133,.1); }
 .duel-lists { display: grid; gap: 14px; align-content: start; }
 .duel-list-section { padding: 18px; }
 .duel-list-section h3 { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
@@ -593,7 +604,9 @@ dialog::backdrop { background: rgba(1, 6, 14, .78); backdrop-filter: blur(6px); 
   .notify-button { grid-column: 2; justify-self: start; }
   .duel-create-card, .duel-list-section { padding: 17px; }
   .duel-list-card { align-items: flex-start; flex-direction: column; }
+  .duel-card-actions { flex-wrap: wrap; }
   .duel-difficulties { grid-template-columns: 1fr; }
+  .friend-add-form > div { grid-template-columns: 1fr; }
   .duel-score-overview { grid-template-columns: repeat(3, 1fr); }
   .review-answers-grid .answer-button { grid-template-columns: 26px 1fr; }
   .answer-badges { grid-column: 2; justify-content: flex-start; }
