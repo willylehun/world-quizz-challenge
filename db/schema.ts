@@ -72,6 +72,24 @@ export const profileReports = sqliteTable("profile_reports", {
   index("idx_profile_reports_reporter").on(table.reporterId, table.createdAt),
 ]);
 
+export const profileFriends = sqliteTable("profile_friends", {
+  id: text("id").primaryKey(),
+  ownerId: text("owner_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  friendId: text("friend_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  createdAt: text("created_at").notNull(),
+}, (table) => [
+  uniqueIndex("idx_profile_friends_pair").on(table.ownerId, table.friendId),
+  index("idx_profile_friends_friend").on(table.friendId),
+]);
+
+export const randomMatchQueue = sqliteTable("random_match_queue", {
+  profileId: text("profile_id").primaryKey().references(() => profiles.id, { onDelete: "cascade" }),
+  difficulty: text("difficulty").notNull(),
+  createdAt: text("created_at").notNull(),
+}, (table) => [
+  index("idx_random_match_queue_difficulty_created").on(table.difficulty, table.createdAt),
+]);
+
 export const apiRateLimits = sqliteTable("api_rate_limits", {
   bucketKey: text("bucket_key").primaryKey(),
   windowStart: integer("window_start").notNull(),

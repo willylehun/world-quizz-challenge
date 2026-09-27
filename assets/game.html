@@ -9,11 +9,11 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="WQC" />
     <meta name="description" content="World Quizz Challenge : 100 niveaux, entraînement et défis pour tester ses connaissances des pays, capitales et dirigeants." />
-    <link rel="manifest" href="manifest.webmanifest?v=16" />
+    <link rel="manifest" href="manifest.webmanifest?v=17" />
     <link rel="icon" type="image/svg+xml" href="icons/wqc-logo.svg?v=12" />
     <link rel="apple-touch-icon" href="icons/wqc-logo-192.png" />
     <title>World Quizz Challenge</title>
-    <link rel="stylesheet" href="styles.css?v=16" />
+    <link rel="stylesheet" href="styles.css?v=17" />
   </head>
   <body>
     <div class="app-shell">
@@ -56,8 +56,24 @@
           </div>
 
           <div class="mode-grid">
-            <button class="mode-card classic-card" type="button" data-action="open-classic">
+            <button class="mode-card challenge-card" type="button" data-action="open-challenge">
               <span class="mode-number">01</span>
+              <span class="mode-content">
+                <strong>Challenge</strong>
+                <small>3 défis • 10 questions • récompenses en WQC</small>
+              </span>
+              <span class="mode-arrow" aria-hidden="true">→</span>
+            </button>
+            <button class="mode-card duel-card" type="button" data-action="open-duel">
+              <span class="mode-number">02</span>
+              <span class="mode-content">
+                <strong>Défi entre amis</strong>
+                <small>Pseudo, amis ou adversaire aléatoire • 20 questions</small>
+              </span>
+              <span class="mode-arrow" aria-hidden="true">→</span>
+            </button>
+            <button class="mode-card classic-card" type="button" data-action="open-classic">
+              <span class="mode-number">03</span>
               <span class="mode-content">
                 <strong>Classique</strong>
                 <small>100 niveaux • 10 difficultés • 3 jokers</small>
@@ -65,26 +81,10 @@
               <span class="mode-arrow" aria-hidden="true">→</span>
             </button>
             <button class="mode-card training-card" type="button" data-action="open-training">
-              <span class="mode-number">02</span>
+              <span class="mode-number">04</span>
               <span class="mode-content">
                 <strong>Entraînement</strong>
                 <small>Choisis ta région et ton type de question</small>
-              </span>
-              <span class="mode-arrow" aria-hidden="true">→</span>
-            </button>
-            <button class="mode-card challenge-card" type="button" data-action="open-challenge">
-              <span class="mode-number">03</span>
-              <span class="mode-content">
-                <strong>Challenge</strong>
-                <small>3 défis • 20 paliers • récompenses en WQC</small>
-              </span>
-              <span class="mode-arrow" aria-hidden="true">→</span>
-            </button>
-            <button class="mode-card duel-card" type="button" data-action="open-duel">
-              <span class="mode-number">04</span>
-              <span class="mode-content">
-                <strong>Défi entre amis</strong>
-                <small>20 questions • 4 difficultés • 1 Erase chacun</small>
               </span>
               <span class="mode-arrow" aria-hidden="true">→</span>
             </button>
@@ -132,18 +132,8 @@
             <button class="back-button" type="button" data-action="home" aria-label="Retour">←</button>
             <div><span class="eyebrow">Mode Challenge</span><h2>Choisis ton défi</h2></div>
           </div>
-          <div class="challenge-intro">Une inscription par défi, puis 20 paliers à réussir. Chaque récompense n’est versée qu’une fois.</div>
+          <div class="challenge-intro">Chaque challenge comporte 10 questions et 3 jokers. Atteins 7/10 pour gagner sa récompense, versée une seule fois.</div>
           <div class="choice-grid challenge-grid" id="challenge-type-grid"></div>
-        </section>
-
-        <section class="screen hidden" data-screen="challenge-tiers">
-          <div class="section-heading levels-heading">
-            <button class="back-button" type="button" data-action="open-challenge" aria-label="Retour">←</button>
-            <div><span class="eyebrow" id="selected-challenge-label">Challenge</span><h2>Choisis un palier</h2></div>
-            <div class="progress-summary" id="challenge-progress-summary"></div>
-          </div>
-          <div class="difficulty-legend" id="challenge-rules"></div>
-          <div class="levels-grid challenge-levels-grid" id="challenge-tiers-grid"></div>
         </section>
 
         <section class="screen quiz-screen hidden" data-screen="quiz">
@@ -184,27 +174,59 @@
         <section class="screen hidden" data-screen="duel-home">
           <div class="section-heading duel-heading">
             <button class="back-button" type="button" data-action="home" aria-label="Retour">←</button>
-            <div><span class="eyebrow">Défi entre amis</span><h2>Affronte un ami</h2></div>
+            <div><span class="eyebrow">Défi entre amis</span><h2>Choisis ton adversaire</h2></div>
             <button class="secondary-button notify-button" type="button" data-action="enable-notifications">Activer les notifications</button>
           </div>
           <div class="duel-layout">
-            <form id="duel-form" class="duel-create-card">
-              <span class="eyebrow">Nouveau duel</span>
-              <h3>Qui veux-tu défier ?</h3>
-              <label for="opponent-name">Pseudo WQC de ton ami</label>
-              <input id="opponent-name" name="opponent" minlength="3" maxlength="20" autocomplete="off" required placeholder="Ex. GlobeTrotter" />
-              <fieldset>
-                <legend>Difficulté</legend>
-                <div class="duel-difficulties">
-                  <label><input type="radio" name="difficulty" value="easy" checked /><span><strong>Facile</strong><small>Pays connus</small></span></label>
-                  <label><input type="radio" name="difficulty" value="medium" /><span><strong>Moyen</strong><small>Monde varié</small></span></label>
-                  <label><input type="radio" name="difficulty" value="hard" /><span><strong>Difficile</strong><small>Pays moins connus</small></span></label>
-                  <label><input type="radio" name="difficulty" value="ultimate" /><span><strong>Ultime</strong><small>Expert mondial</small></span></label>
-                </div>
-              </fieldset>
-              <button class="primary-button" type="submit">Envoyer le défi</button>
-              <p class="form-message" id="duel-form-message" role="status"></p>
-            </form>
+            <div class="duel-tools">
+              <form id="random-duel-form" class="duel-create-card random-duel-card">
+                <span class="eyebrow">Adversaire aléatoire</span>
+                <h3>Trouver un joueur</h3>
+                <p class="duel-card-copy">Choisis un niveau. Le premier joueur en recherche sur la même difficulté recevra l’invitation.</p>
+                <fieldset>
+                  <legend>Difficulté</legend>
+                  <div class="duel-difficulties">
+                    <label><input type="radio" name="randomDifficulty" value="easy" checked /><span><strong>Facile</strong><small>Pays connus</small></span></label>
+                    <label><input type="radio" name="randomDifficulty" value="medium" /><span><strong>Moyen</strong><small>Monde varié</small></span></label>
+                    <label><input type="radio" name="randomDifficulty" value="hard" /><span><strong>Difficile</strong><small>Pays moins connus</small></span></label>
+                    <label><input type="radio" name="randomDifficulty" value="ultimate" /><span><strong>Ultime</strong><small>Expert mondial</small></span></label>
+                  </div>
+                </fieldset>
+                <button class="primary-button" type="submit" id="random-duel-submit">Inviter un adversaire aléatoire</button>
+                <button class="secondary-button hidden" type="button" data-action="cancel-random-duel" id="random-duel-cancel">Annuler la recherche</button>
+                <p class="form-message" id="random-duel-message" role="status"></p>
+              </form>
+
+              <form id="duel-form" class="duel-create-card">
+                <span class="eyebrow">Recherche par pseudo</span>
+                <h3>Qui veux-tu défier ?</h3>
+                <label for="opponent-name">Pseudo WQC de ton adversaire</label>
+                <input id="opponent-name" name="opponent" minlength="3" maxlength="20" autocomplete="off" required placeholder="Ex. GlobeTrotter" />
+                <fieldset>
+                  <legend>Difficulté</legend>
+                  <div class="duel-difficulties">
+                    <label><input type="radio" name="difficulty" value="easy" checked /><span><strong>Facile</strong><small>Pays connus</small></span></label>
+                    <label><input type="radio" name="difficulty" value="medium" /><span><strong>Moyen</strong><small>Monde varié</small></span></label>
+                    <label><input type="radio" name="difficulty" value="hard" /><span><strong>Difficile</strong><small>Pays moins connus</small></span></label>
+                    <label><input type="radio" name="difficulty" value="ultimate" /><span><strong>Ultime</strong><small>Expert mondial</small></span></label>
+                  </div>
+                </fieldset>
+                <button class="primary-button" type="submit">Envoyer le défi</button>
+                <p class="form-message" id="duel-form-message" role="status"></p>
+                <small class="request-expiry">Toute invitation sans réponse est supprimée automatiquement après 7 jours.</small>
+              </form>
+
+              <section class="duel-create-card friends-card">
+                <span class="eyebrow">Mes amis</span>
+                <h3>Retrouve-les facilement</h3>
+                <form id="friend-form" class="friend-add-form">
+                  <label for="friend-name">Pseudo WQC à ajouter</label>
+                  <div><input id="friend-name" name="friendName" minlength="3" maxlength="20" autocomplete="off" required placeholder="Pseudo de ton ami" /><button class="secondary-button" type="submit">Ajouter</button></div>
+                  <p class="form-message" id="friend-form-message" role="status"></p>
+                </form>
+                <div id="friends-list"><p class="duel-empty">Chargement des amis…</p></div>
+              </section>
+            </div>
             <div class="duel-lists" id="duel-lists"><div class="loading-card">Chargement des défis…</div></div>
           </div>
         </section>
@@ -395,6 +417,6 @@
     <div id="data-error" class="data-error hidden" role="alert">
       Impossible de charger les questions. Recharge la page pour réessayer.
     </div>
-    <script src="app.js?v=16" defer></script>
+    <script src="app.js?v=17" defer></script>
   </body>
 </html>
