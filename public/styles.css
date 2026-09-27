@@ -358,6 +358,31 @@ main { flex: 1; display: flex; }
 .feedback.good { color: var(--green); }
 .feedback.bad { color: var(--red); }
 
+.answer-fact-toast {
+  position: fixed;
+  z-index: 90;
+  left: 50%;
+  bottom: max(24px, calc(env(safe-area-inset-bottom) + 16px));
+  width: min(520px, calc(100% - 28px));
+  transform: translateX(-50%);
+  display: grid;
+  gap: 5px;
+  padding: 17px 20px;
+  border: 1px solid rgba(45, 212, 191, .48);
+  border-radius: 16px;
+  background: linear-gradient(145deg, rgba(11, 42, 65, .98), rgba(4, 18, 34, .98));
+  box-shadow: 0 20px 70px rgba(0, 0, 0, .55), 0 0 28px rgba(45, 212, 191, .12);
+  pointer-events: none;
+  animation: answer-fact-in 180ms ease-out;
+}
+.answer-fact-toast small { color: var(--teal); font-weight: 850; letter-spacing: .12em; text-transform: uppercase; }
+.answer-fact-toast strong { color: var(--ink); font-size: 1.2rem; }
+.answer-fact-toast span { color: var(--muted); line-height: 1.35; }
+@keyframes answer-fact-in {
+  from { opacity: 0; transform: translate(-50%, 10px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
 .joker-dock { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
 .joker-dock button {
   border: 1px solid var(--line);
