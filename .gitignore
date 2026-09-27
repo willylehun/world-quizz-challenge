@@ -25,6 +25,7 @@
 *.p12
 *.pfx
 *.keystore
+*.jks
 .dev.vars*
 !.dev.vars.example
 .secrets*
@@ -47,6 +48,10 @@ next-env.d.ts
 *.tsbuildinfo
 /dist/
 /.wrangler/
+/android/.gradle/
+/android/local.properties
+/android/app/build/
+/android/build/
 # Checkout-local execution profile and tool state; never publish them.
 /.sites-runtime/
 /.agents/

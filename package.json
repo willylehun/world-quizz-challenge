@@ -13,6 +13,8 @@
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "typecheck": "tsc --noEmit",
     "security:check": "node scripts/security-check.mjs",
+    "android:check": "node scripts/validate-android-config.mjs",
+    "play:check": "node scripts/validate-play-store.mjs",
     "db:generate": "drizzle-kit generate"
   },
   "dependencies": {

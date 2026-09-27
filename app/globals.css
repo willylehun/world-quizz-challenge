@@ -135,3 +135,47 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+.legal-shell {
+  min-height: 100vh;
+  padding: clamp(24px, 5vw, 64px) 18px;
+  background: radial-gradient(circle at 15% 10%, rgba(45, 212, 191, .18), transparent 28%), linear-gradient(145deg, #10385e, #07182a 56%, #010205);
+  color: #f5f8ff;
+}
+
+.legal-card {
+  width: min(860px, 100%);
+  margin: 0 auto;
+  padding: clamp(26px, 5vw, 54px);
+  border: 1px solid rgba(198, 225, 247, .22);
+  border-radius: 8px 38px 8px 38px;
+  background: linear-gradient(150deg, rgba(21, 69, 104, .94), rgba(7, 24, 42, .97));
+  box-shadow: 0 24px 80px rgba(0, 0, 0, .35);
+}
+
+.legal-card-narrow { width: min(680px, 100%); }
+.legal-card h1 { margin: 8px 0 4px; font-size: clamp(2.1rem, 7vw, 3.6rem); line-height: 1.05; letter-spacing: -.04em; }
+.legal-card h2 { margin: 0 0 10px; font-size: 1.3rem; }
+.legal-card section { margin-top: 32px; }
+.legal-card p, .legal-card li { color: #b6c5d7; line-height: 1.7; }
+.legal-card ul { padding-left: 22px; }
+.legal-card a { color: #51e4d1; text-underline-offset: 3px; }
+.legal-back { display: inline-flex; margin-bottom: 24px; font-weight: 750; text-decoration: none; }
+.legal-kicker { margin: 0 !important; color: #2dd4bf !important; font-size: .78rem; font-weight: 850; letter-spacing: .18em; text-transform: uppercase; }
+.legal-updated, .legal-footnote { font-size: .86rem; }
+.legal-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; margin-top: 20px; }
+.legal-primary, .legal-secondary, .legal-danger { display: inline-flex; justify-content: center; border-radius: 999px; padding: 13px 20px; font: inherit; font-weight: 800; cursor: pointer; text-decoration: none; }
+.legal-primary { border: 1px solid #2dd4bf; background: #2dd4bf; color: #04201d !important; }
+.legal-secondary { width: 100%; border: 1px solid rgba(198, 225, 247, .25); background: transparent; color: #f5f8ff; }
+.legal-danger { width: 100%; border: 1px solid #fb7185; background: #fb7185; color: #2a0710; }
+.legal-primary:disabled, .legal-secondary:disabled, .legal-danger:disabled { opacity: .45; cursor: not-allowed; }
+.account-delete-panel { margin: 28px 0; padding: 22px; border: 1px solid rgba(198, 225, 247, .22); border-radius: 18px; background: rgba(1, 2, 5, .24); }
+.legal-profile { display: flex; justify-content: space-between; gap: 15px; margin-bottom: 16px; }
+.legal-profile span { color: #9bacbf; }
+.account-delete-panel form { display: grid; gap: 13px; margin-top: 24px; }
+.account-delete-panel label { color: #b6c5d7; line-height: 1.5; }
+.account-delete-panel label strong { color: #f5f8ff; }
+.account-delete-panel input { width: 100%; border: 1px solid rgba(198, 225, 247, .22); border-radius: 12px; background: rgba(4, 13, 27, .72); color: #f5f8ff; padding: 13px 14px; font: inherit; }
+.legal-status { min-height: 1.5em; margin-bottom: 0; color: #f8c85a !important; }
+.legal-success { padding: 20px 0; }
+.legal-success h2 { color: #42d392; }

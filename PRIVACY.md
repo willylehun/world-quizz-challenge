@@ -9,6 +9,10 @@ WQC ne demande ni compte externe, ni adresse e-mail, ni identité civile. L’ap
 - Les parties multijoueurs et abonnements push sont stockés dans D1 afin d’assurer les invitations, tours, résultats et notifications.
 - La protection anti-abus conserve uniquement des identifiants techniques hachés, sans adresse réseau en clair, et purge les compteurs expirés.
 - Le bouton de réinitialisation remet à zéro les statistiques et la progression prévues sans supprimer le profil ni les parties existantes.
+- Le joueur peut exporter ses données serveur depuis son profil ou la page de suppression du compte.
+- Le joueur peut supprimer définitivement son profil, ses parties, ses réponses, ses statistiques de duel et ses abonnements push depuis l’application ou `/suppression-compte`.
+- Un joueur peut signaler et bloquer un adversaire depuis le résultat d’un duel. Le motif, les identifiants concernés et la date du signalement sont conservés pour assurer la sécurité du service ; le blocage empêche immédiatement de nouvelles interactions.
+- La politique publique est disponible sur `/confidentialite`.
 
 ## Avant toute future collecte de statistiques
 

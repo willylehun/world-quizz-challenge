@@ -44,6 +44,12 @@ jobs:
       - name: Run repository security checks
         run: pnpm run security:check
 
+      - name: Validate Android release configuration
+        run: pnpm run android:check
+
+      - name: Validate Google Play metadata and assets
+        run: pnpm run play:check
+
       - name: Validate database migrations
         run: pnpm exec drizzle-kit check
 

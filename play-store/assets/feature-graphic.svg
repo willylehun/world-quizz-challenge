@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="500" viewBox="0 0 1024 500">
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#154568"/>
+      <stop offset="0.58" stop-color="#07182a"/>
+      <stop offset="1" stop-color="#010205"/>
+    </linearGradient>
+    <radialGradient id="glow">
+      <stop offset="0" stop-color="#2dd4bf" stop-opacity=".35"/>
+      <stop offset="1" stop-color="#2dd4bf" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1024" height="500" fill="url(#bg)"/>
+  <circle cx="145" cy="76" r="280" fill="url(#glow)"/>
+  <circle cx="925" cy="425" r="220" fill="none" stroke="#f8c85a" stroke-opacity=".13" stroke-width="36"/>
+  <rect x="64" y="66" width="368" height="368" rx="82" fill="#010205" stroke="#2dd4bf" stroke-opacity=".28" stroke-width="2"/>
+  <circle cx="248" cy="250" r="126" fill="none" stroke="#2dd4bf" stroke-width="18"/>
+  <path d="M140 250h216M248 142c-44 47-44 169 0 216M248 142c44 47 44 169 0 216" fill="none" stroke="#f8c85a" stroke-width="12" stroke-linecap="round"/>
+  <text x="248" y="270" text-anchor="middle" fill="#ff3347" font-family="Arial, sans-serif" font-size="64" font-weight="900">WQC</text>
+  <text x="490" y="178" fill="#2dd4bf" font-family="Arial, sans-serif" font-size="22" font-weight="800" letter-spacing="5">JOUE • APPRENDS • DÉFIE</text>
+  <text x="490" y="244" fill="#f5f8ff" font-family="Arial, sans-serif" font-size="52" font-weight="900">World Quizz</text>
+  <text x="490" y="302" fill="#f5f8ff" font-family="Arial, sans-serif" font-size="52" font-weight="900">Challenge</text>
+  <text x="492" y="356" fill="#9bacbf" font-family="Arial, sans-serif" font-size="25">Pays, capitales et dirigeants</text>
+</svg>

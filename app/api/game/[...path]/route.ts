@@ -5,7 +5,7 @@ import { isSafePushEndpoint, sendGameNotification } from "@/lib/push";
 
 export const runtime = "edge";
 
-type Profile = { id: string; name: string; stats_reset_at: string | null; created_at: string };
+type Profile = { id: string; name: string; stats_reset_at: string | null; terms_accepted_at?: string | null; created_at: string };
 type AuthContext = { profile: Profile; token: string; source: "cookie" | "bearer" };
 type Answer = { index: number; answer: string; correct: boolean };
 type MatchRow = {
@@ -21,6 +21,7 @@ const SESSION_COOKIE = "__Host-wqc_session";
 const PROFILE_TOKEN_RE = /^[A-Za-z0-9_-]{43}$/;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const WEB_PUSH_KEY_RE = /^[A-Za-z0-9_-]+$/;
+const REPORT_REASONS = new Set(["offensive_name", "harassment", "spam", "other"]);
 const JSON_HEADERS = {
   "content-type": "application/json; charset=utf-8",
   "cache-control": "no-store",
@@ -74,6 +75,10 @@ function readCookie(request: Request, name: string) {
 
 function sessionCookie(token: string) {
   return `${SESSION_COOKIE}=${token}; Path=/; Max-Age=31536000; HttpOnly; Secure; SameSite=Strict`;
+}
+
+function expiredSessionCookie() {
+  return `${SESSION_COOKIE}=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Strict`;
 }
 
 function clientNetworkIdentity(request: Request) {
@@ -154,7 +159,7 @@ async function authenticate(request: Request): Promise<AuthContext | null> {
     && values.findIndex((value) => value.token === candidate.token) === index);
   for (const candidate of candidates) {
     const row = await getRawDb().prepare(
-      "SELECT id, name, stats_reset_at, created_at FROM profiles WHERE token_hash = ? LIMIT 1",
+      "SELECT id, name, stats_reset_at, terms_accepted_at, created_at FROM profiles WHERE token_hash = ? LIMIT 1",
     ).bind(await hashToken(candidate.token)).first<Profile>();
     if (row) return { profile: row, token: candidate.token, source: candidate.source };
   }
@@ -241,14 +246,15 @@ async function createProfile(request: Request) {
   const body = await readBody(request);
   const name = normalizeName(body.name);
   if (!validName(name)) return json({ error: "Choisis un pseudo de 3 à 20 caractères (lettres, chiffres, espace, _ ou -)." }, 400);
+  if (body.acceptedTerms !== true) return json({ error: "Tu dois accepter les règles d’utilisation pour créer un profil." }, 400);
   const tokenBytes = crypto.getRandomValues(new Uint8Array(32));
   const token = encodeBytes(tokenBytes);
   const now = new Date().toISOString();
-  const profile: Profile = { id: crypto.randomUUID(), name, stats_reset_at: null, created_at: now };
+  const profile: Profile = { id: crypto.randomUUID(), name, stats_reset_at: null, terms_accepted_at: now, created_at: now };
   try {
     await getRawDb().prepare(
-      "INSERT INTO profiles (id, name, name_norm, token_hash, created_at) VALUES (?, ?, ?, ?, ?)",
-    ).bind(profile.id, name, name.toLocaleLowerCase("fr"), await hashToken(token), now).run();
+      "INSERT INTO profiles (id, name, name_norm, token_hash, terms_accepted_at, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+    ).bind(profile.id, name, name.toLocaleLowerCase("fr"), await hashToken(token), now, now).run();
   } catch (error) {
     if (String(error).toLowerCase().includes("unique")) return json({ error: "Ce pseudo est déjà utilisé. Essaie une variante." }, 409);
     throw error;
@@ -287,10 +293,15 @@ async function createMatch(request: Request, profile: Profile) {
   const opponentName = normalizeName(body.opponentName);
   if (!validName(opponentName) || !isDuelDifficulty(body.difficulty)) return json({ error: "Adversaire ou difficulté invalide." }, 400);
   const opponent = await getRawDb().prepare(
-    "SELECT id, name, stats_reset_at, created_at FROM profiles WHERE name_norm = ? LIMIT 1",
+    "SELECT id, name, stats_reset_at, terms_accepted_at, created_at FROM profiles WHERE name_norm = ? LIMIT 1",
   ).bind(opponentName.toLocaleLowerCase("fr")).first<Profile>();
   if (!opponent) return json({ error: "Aucun profil WQC ne porte ce pseudo." }, 404);
   if (opponent.id === profile.id) return json({ error: "Tu ne peux pas te défier toi-même." }, 400);
+  const blocked = await getRawDb().prepare(`
+    SELECT id FROM profile_blocks
+    WHERE (blocker_id = ? AND blocked_id = ?) OR (blocker_id = ? AND blocked_id = ?) LIMIT 1
+  `).bind(profile.id, opponent.id, opponent.id, profile.id).first<{ id: string }>();
+  if (blocked) return json({ error: "Ce joueur n’est pas disponible pour un défi." }, 403);
   const duplicate = await getRawDb().prepare(`
     SELECT id FROM matches WHERE status IN ('pending','active')
     AND ((player1_id = ? AND player2_id = ?) OR (player1_id = ? AND player2_id = ?)) LIMIT 1
@@ -473,6 +484,92 @@ async function resetStats(profile: Profile) {
   return json({ message: "Statistiques de duel réinitialisées." });
 }
 
+async function reportAndBlockMatch(request: Request, id: string, profile: Profile) {
+  const row = await loadMatch(id);
+  if (!row || !isParticipant(row, profile)) return json({ error: "Défi introuvable." }, 404);
+  const body = await readBody(request);
+  const reason = typeof body.reason === "string" && REPORT_REASONS.has(body.reason) ? body.reason : "other";
+  const reportedId = row.player1_id === profile.id ? row.player2_id : row.player1_id;
+  const now = new Date().toISOString();
+  const db = getRawDb();
+  await db.batch([
+    db.prepare(`
+      INSERT INTO profile_reports (id, reporter_id, reported_id, match_id, reason, created_at)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).bind(crypto.randomUUID(), profile.id, reportedId, id, reason, now),
+    db.prepare(`
+      INSERT INTO profile_blocks (id, blocker_id, blocked_id, created_at) VALUES (?, ?, ?, ?)
+      ON CONFLICT(blocker_id, blocked_id) DO NOTHING
+    `).bind(crypto.randomUUID(), profile.id, reportedId, now),
+    db.prepare(`
+      UPDATE matches SET status = 'cancelled', phase = 'cancelled', turn_player_id = NULL, updated_at = ?
+      WHERE status IN ('pending', 'active')
+        AND ((player1_id = ? AND player2_id = ?) OR (player1_id = ? AND player2_id = ?))
+    `).bind(now, profile.id, reportedId, reportedId, profile.id),
+  ]);
+  return json({ message: "Le joueur a été signalé et bloqué. Aucun nouveau défi ne sera possible entre ces profils." });
+}
+
+async function exportProfileData(profile: Profile) {
+  const result = await getRawDb().prepare(`
+    SELECT m.*, p1.name AS player1_name, p2.name AS player2_name
+    FROM matches m JOIN profiles p1 ON p1.id = m.player1_id JOIN profiles p2 ON p2.id = m.player2_id
+    WHERE m.player1_id = ? OR m.player2_id = ? ORDER BY m.created_at ASC
+  `).bind(profile.id, profile.id).all<MatchRow>();
+  const push = await getRawDb().prepare(
+    "SELECT COUNT(*) AS count FROM push_subscriptions WHERE profile_id = ?",
+  ).bind(profile.id).first<{ count: number }>();
+  const reports = await getRawDb().prepare(`
+    SELECT reason, match_id, created_at FROM profile_reports WHERE reporter_id = ? ORDER BY created_at ASC
+  `).bind(profile.id).all<{ reason: string; match_id: string | null; created_at: string }>();
+  const blocks = await getRawDb().prepare(`
+    SELECT p.name AS blocked_name, b.created_at
+    FROM profile_blocks b JOIN profiles p ON p.id = b.blocked_id
+    WHERE b.blocker_id = ? ORDER BY b.created_at ASC
+  `).bind(profile.id).all<{ blocked_name: string; created_at: string }>();
+  return json({
+    exportedAt: new Date().toISOString(),
+    profile: {
+      id: profile.id,
+      name: profile.name,
+      createdAt: profile.created_at,
+      statsResetAt: profile.stats_reset_at,
+      termsAcceptedAt: profile.terms_accepted_at || null,
+    },
+    notifications: { activeSubscriptions: Number(push?.count || 0) },
+    reports: reports.results || [],
+    blockedProfiles: blocks.results || [],
+    matches: (result.results || []).map((row) => publicMatch(row, profile)),
+  }, 200, {
+    "content-disposition": `attachment; filename="wqc-data-${profile.id}.json"`,
+  });
+}
+
+async function deleteProfile(request: Request, profile: Profile) {
+  const body = await readBody(request);
+  const confirmation = normalizeName(body.confirmation);
+  if (confirmation !== profile.name) {
+    return json({ error: "Recopie exactement ton pseudo pour confirmer la suppression." }, 400);
+  }
+  const db = getRawDb();
+  const rateLimitScopes = ["profile-write", "match-proposal", "stats-reset", "push-subscribe", "profile-report", "profile-delete"];
+  const rateLimitKeys = await Promise.all(rateLimitScopes.map((scope) => rateLimitKey(scope, profile.id)));
+  const placeholders = rateLimitKeys.map(() => "?").join(", ");
+  await db.batch([
+    db.prepare("DELETE FROM push_subscriptions WHERE profile_id = ?").bind(profile.id),
+    db.prepare("DELETE FROM profile_reports WHERE reporter_id = ? OR reported_id = ?").bind(profile.id, profile.id),
+    db.prepare("DELETE FROM profile_blocks WHERE blocker_id = ? OR blocked_id = ?").bind(profile.id, profile.id),
+    db.prepare("DELETE FROM matches WHERE player1_id = ? OR player2_id = ?").bind(profile.id, profile.id),
+    db.prepare(`DELETE FROM api_rate_limits WHERE bucket_key IN (${placeholders})`).bind(...rateLimitKeys),
+    db.prepare("DELETE FROM profiles WHERE id = ?").bind(profile.id),
+  ]);
+  return json(
+    { message: "Ton profil WQC et toutes ses données serveur ont été supprimés." },
+    200,
+    { "set-cookie": expiredSessionCookie() },
+  );
+}
+
 async function subscribePush(request: Request, profile: Profile) {
   const body = await readBody(request);
   const endpoint = typeof body.endpoint === "string" ? body.endpoint : "";
@@ -522,10 +619,19 @@ async function handle(request: Request) {
     }
     if (request.method === "POST" && parts[0] === "matches" && parts[1] && parts[2] === "answer") return await answerMatch(request, parts[1], profile);
     if (request.method === "POST" && parts[0] === "matches" && parts[1] && parts[2] === "erase") return await eraseMatch(parts[1], profile);
+    if (request.method === "POST" && parts[0] === "matches" && parts[1] && parts[2] === "report-block") {
+      await enforceRateLimit("profile-report", profile.id, 10, 24 * 60 * 60);
+      return await reportAndBlockMatch(request, parts[1], profile);
+    }
     if (request.method === "GET" && parts[0] === "stats") return await stats(profile);
+    if (request.method === "GET" && parts[0] === "export-profile") return await exportProfileData(profile);
     if (request.method === "POST" && parts[0] === "reset-stats") {
       await enforceRateLimit("stats-reset", profile.id, 5, 60 * 60);
       return await resetStats(profile);
+    }
+    if (request.method === "POST" && parts[0] === "delete-profile") {
+      await enforceRateLimit("profile-delete", profile.id, 3, 60 * 60);
+      return await deleteProfile(request, profile);
     }
     if (request.method === "POST" && parts[0] === "push" && parts[1] === "subscribe") {
       await enforceRateLimit("push-subscribe", profile.id, 10, 60 * 60);

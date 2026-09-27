@@ -15,6 +15,20 @@
       "when": 1790526865292,
       "tag": "0001_petite_prodigy",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1790534411851,
+      "tag": "0002_lying_reavers",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1790534735278,
+      "tag": "0003_small_wolverine",
+      "breakpoints": true
     }
   ]
 }

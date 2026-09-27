@@ -463,6 +463,8 @@ dialog::backdrop { background: rgba(1, 6, 14, .78); backdrop-filter: blur(6px); 
 .duel-empty { margin: 0; padding: 7px 0; }
 .duel-card-actions { display: flex; gap: 7px; }
 .duel-card-actions button { padding: 9px 13px; }
+.duel-card-safety { border: 0; background: transparent; color: var(--muted); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+.duel-card-safety:hover { color: #ffd3da; }
 .error-card { color: var(--red); }
 .duel-score { display: flex; gap: 9px; align-items: baseline; font-size: 1.35rem; font-weight: 900; color: var(--gold); }
 .duel-score small { color: var(--muted); }
@@ -477,6 +479,8 @@ dialog::backdrop { background: rgba(1, 6, 14, .78); backdrop-filter: blur(6px); 
 .duel-result-card.won .duel-result-state { color: var(--green); border-color: var(--green); box-shadow: 0 0 38px rgba(66,211,146,.2); }
 .duel-result-card.lost .duel-result-state { color: var(--red); border-color: var(--red); box-shadow: 0 0 38px rgba(251,113,133,.17); }
 .duel-result-card.draw .duel-result-state { color: var(--gold); border-color: var(--gold); box-shadow: 0 0 38px rgba(248,200,90,.17); }
+.duel-safety-action { margin-top: 20px; border: 0; background: transparent; color: var(--muted); cursor: pointer; font-size: .8rem; text-decoration: underline; text-underline-offset: 3px; }
+.duel-safety-action:hover { color: #ffd3da; }
 .duel-final-score { margin: 24px auto 2px; color: var(--gold); font-size: clamp(2.2rem, 7vw, 4.2rem); font-weight: 950; letter-spacing: -.06em; }
 .review-answers-grid .answer-button { cursor: default; grid-template-columns: 30px 1fr auto; }
 .review-answers-grid .answer-button:hover { transform: none; }
@@ -504,6 +508,9 @@ dialog::backdrop { background: rgba(1, 6, 14, .78); backdrop-filter: blur(6px); 
 .profile-launch-card > p { max-width: 440px; margin: 18px auto 0; }
 .profile-launch-card form { text-align: left; }
 .profile-launch-card form .primary-button { width: 100%; margin-top: 4px; }
+.profile-launch-card .terms-check { display: grid; grid-template-columns: auto 1fr; align-items: start; gap: 9px; font-weight: 500; line-height: 1.45; }
+.profile-launch-card .terms-check input { width: 18px; height: 18px; margin-top: 2px; accent-color: var(--teal); }
+.profile-launch-card .terms-check a { color: var(--teal); text-underline-offset: 3px; }
 .profile-dialog > .eyebrow { display: block; margin: 18px 0 6px; }
 .profile-dialog h2 { margin: 0; font-size: 2rem; }
 .profile-dialog p, .privacy-note { color: var(--muted); line-height: 1.5; }
@@ -511,6 +518,16 @@ dialog::backdrop { background: rgba(1, 6, 14, .78); backdrop-filter: blur(6px); 
 .profile-dialog .dialog-head { padding: 0 0 20px; margin-bottom: 20px; }
 .profile-status { display: flex; justify-content: space-between; gap: 15px; border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin: 18px 0; }
 .profile-status span { color: var(--muted); }
+.profile-data-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin-top: 20px; }
+.profile-data-actions a { color: var(--teal); font-size: .86rem; text-underline-offset: 3px; }
+.profile-delete-button { width: 100%; margin-top: 20px; }
+#profile-delete-dialog form { display: grid; gap: 12px; margin-top: 20px; }
+#profile-delete-dialog label { color: var(--muted); line-height: 1.5; }
+#profile-delete-dialog label strong { color: var(--ink); }
+#profile-delete-dialog input { width: 100%; border: 1px solid var(--line); border-radius: 12px; background: rgba(4,13,27,.72); color: var(--ink); padding: 13px 14px; font: inherit; }
+#report-block-dialog form { display: grid; gap: 12px; margin-top: 20px; }
+#report-block-dialog label { color: var(--muted); }
+#report-block-dialog select { width: 100%; border: 1px solid var(--line); border-radius: 12px; background: #07182a; color: var(--ink); padding: 13px 14px; font: inherit; }
 .duel-score-overview { grid-template-columns: repeat(3, 1fr); }
 
 @media (max-width: 900px) {
