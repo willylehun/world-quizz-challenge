@@ -34,6 +34,10 @@ const frameworkHeaders = readFileSync("next.config.ts", "utf8");
 for (const directive of ["Content-Security-Policy", "frame-ancestors 'none'", "X-Content-Type-Options", "Permissions-Policy", "Referrer-Policy"]) {
   if (!frameworkHeaders.includes(directive)) failures.push(`En-tête framework manquant : ${directive}`);
 }
+const viteConfig = readFileSync("vite.config.ts", "utf8");
+if (!/assets\s*:\s*{[\s\S]*?binding\s*:\s*["']ASSETS["'][\s\S]*?run_worker_first\s*:\s*true/.test(viteConfig)) {
+  failures.push("Le Worker doit précéder les ressources statiques pour appliquer les en-têtes de sécurité.");
+}
 
 for (const workflow of files.filter((name) => /^\.github\/workflows\/.*\.ya?ml$/.test(name))) {
   const content = readFileSync(workflow, "utf8");
