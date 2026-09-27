@@ -13,7 +13,7 @@
     <link rel="icon" type="image/svg+xml" href="icons/wqc-logo.svg?v=12" />
     <link rel="apple-touch-icon" href="icons/wqc-logo-192.png" />
     <title>World Quizz Challenge</title>
-    <link rel="stylesheet" href="styles.css?v=17" />
+    <link rel="stylesheet" href="styles.css?v=18" />
   </head>
   <body>
     <div class="app-shell">
@@ -132,7 +132,7 @@
             <button class="back-button" type="button" data-action="home" aria-label="Retour">←</button>
             <div><span class="eyebrow">Mode Challenge</span><h2>Choisis ton défi</h2></div>
           </div>
-          <div class="challenge-intro">Chaque challenge comporte 10 questions et 3 jokers. Atteins 7/10 pour gagner sa récompense, versée une seule fois.</div>
+          <div class="challenge-intro">Chaque partie comporte 10 questions de difficulté croissante et 3 jokers. La participation est payante à chaque tentative et une réussite rapporte la récompense indiquée.</div>
           <div class="choice-grid challenge-grid" id="challenge-type-grid"></div>
         </section>
 
@@ -314,7 +314,7 @@
 
     <dialog id="reset-dialog" class="confirm-dialog">
       <h2>Réinitialiser tout le jeu ?</h2>
-      <p>Cette action efface les scores, les niveaux débloqués, les inscriptions Challenge, l’historique des questions, le solde WQC et remet les statistiques de duel à zéro. Ton profil et tes parties restent accessibles.</p>
+      <p>Cette action efface les scores, les niveaux débloqués, l’historique Challenge, l’historique des questions, le solde WQC et remet les statistiques de duel à zéro. Ton profil et tes parties restent accessibles.</p>
       <div class="dialog-actions">
         <button type="button" class="secondary-button" data-action="cancel-reset">Annuler</button>
         <button type="button" class="danger-button" data-action="confirm-reset">Tout effacer</button>
@@ -417,6 +417,6 @@
     <div id="data-error" class="data-error hidden" role="alert">
       Impossible de charger les questions. Recharge la page pour réessayer.
     </div>
-    <script src="app.js?v=17" defer></script>
+    <script src="app.js?v=18" defer></script>
   </body>
 </html>
