@@ -5,8 +5,9 @@ WQC ne demande ni compte externe, ni adresse e-mail, ni identité civile. L’ap
 ## État actuel
 
 - Aucune publicité, aucun traceur et aucune mesure d’audience ne sont intégrés.
-- La progression solo et le jeton de profil restent dans le stockage local du navigateur.
+- La progression solo reste dans le stockage local du navigateur. Le jeton de profil est conservé dans un cookie sécurisé HttpOnly ; les anciens jetons LocalStorage sont renouvelés puis supprimés automatiquement.
 - Les parties multijoueurs et abonnements push sont stockés dans D1 afin d’assurer les invitations, tours, résultats et notifications.
+- La protection anti-abus conserve uniquement des identifiants techniques hachés, sans adresse réseau en clair, et purge les compteurs expirés.
 - Le bouton de réinitialisation remet à zéro les statistiques et la progression prévues sans supprimer le profil ni les parties existantes.
 
 ## Avant toute future collecte de statistiques

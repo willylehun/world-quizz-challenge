@@ -48,3 +48,12 @@ export const pushSubscriptions = sqliteTable("push_subscriptions", {
   uniqueIndex("idx_push_endpoint").on(table.endpoint),
   index("idx_push_profile").on(table.profileId),
 ]);
+
+export const apiRateLimits = sqliteTable("api_rate_limits", {
+  bucketKey: text("bucket_key").primaryKey(),
+  windowStart: integer("window_start").notNull(),
+  requestCount: integer("request_count").notNull().default(1),
+  expiresAt: integer("expires_at").notNull(),
+}, (table) => [
+  index("idx_api_rate_limits_expires_at").on(table.expiresAt),
+]);

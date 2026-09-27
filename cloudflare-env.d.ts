@@ -5,5 +5,6 @@ declare namespace Cloudflare {
     VAPID_SUBJECT?: string;
     VAPID_SERVER_PUBLIC_KEY?: string;
     VAPID_SERVER_PRIVATE_KEY?: string;
+    RATE_LIMIT_SECRET?: string;
   }
 }

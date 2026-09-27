@@ -1,13 +1,13 @@
 "use strict";
 
-const CACHE_NAME = "wqc-v14";
+const CACHE_NAME = "wqc-v15";
 const BASE_URL = new URL("./", self.location.href);
 const APP_SHELL = [
   "./",
   "game.html",
-  "styles.css?v=14",
-  "app.js?v=14",
-  "manifest.webmanifest?v=14",
+  "styles.css?v=15",
+  "app.js?v=15",
+  "manifest.webmanifest?v=15",
   "icons/wqc-logo.svg",
   "icons/wqc-logo-192.png",
   "icons/wqc-logo-512.png",

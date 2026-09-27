@@ -6,6 +6,7 @@ import { isSafePushEndpoint, sendGameNotification } from "@/lib/push";
 export const runtime = "edge";
 
 type Profile = { id: string; name: string; stats_reset_at: string | null; created_at: string };
+type AuthContext = { profile: Profile; token: string; source: "cookie" | "bearer" };
 type Answer = { index: number; answer: string; correct: boolean };
 type MatchRow = {
   id: string; player1_id: string; player2_id: string; player1_name?: string; player2_name?: string;
@@ -16,6 +17,7 @@ type MatchRow = {
 };
 
 const MAX_JSON_BODY_BYTES = 16 * 1024;
+const SESSION_COOKIE = "__Host-wqc_session";
 const PROFILE_TOKEN_RE = /^[A-Za-z0-9_-]{43}$/;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const WEB_PUSH_KEY_RE = /^[A-Za-z0-9_-]+$/;
@@ -30,14 +32,16 @@ const JSON_HEADERS = {
 };
 
 class RequestError extends Error {
-  constructor(public status: number, public publicMessage: string) {
+  constructor(public status: number, public publicMessage: string, public retryAfter?: number) {
     super(publicMessage);
     this.name = "RequestError";
   }
 }
 
-function json(data: unknown, status = 200) {
-  return new Response(JSON.stringify(data), { status, headers: JSON_HEADERS });
+function json(data: unknown, status = 200, extraHeaders: HeadersInit = {}) {
+  const headers = new Headers(JSON_HEADERS);
+  new Headers(extraHeaders).forEach((value, key) => headers.set(key, value));
+  return new Response(JSON.stringify(data), { status, headers });
 }
 
 function normalizeName(value: unknown) {
@@ -57,6 +61,63 @@ function encodeBytes(bytes: Uint8Array) {
 async function hashToken(token: string) {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(token));
   return encodeBytes(new Uint8Array(digest));
+}
+
+function readCookie(request: Request, name: string) {
+  for (const part of (request.headers.get("cookie") || "").split(";")) {
+    const separator = part.indexOf("=");
+    if (separator < 0 || part.slice(0, separator).trim() !== name) continue;
+    return part.slice(separator + 1).trim();
+  }
+  return "";
+}
+
+function sessionCookie(token: string) {
+  return `${SESSION_COOKIE}=${token}; Path=/; Max-Age=31536000; HttpOnly; Secure; SameSite=Strict`;
+}
+
+function clientNetworkIdentity(request: Request) {
+  const address = (request.headers.get("cf-connecting-ip") || "").trim();
+  return address && address.length <= 64 ? address : "unavailable";
+}
+
+async function rateLimitKey(scope: string, identity: string) {
+  const input = new TextEncoder().encode(`${scope}\0${identity}`);
+  const secret = env.RATE_LIMIT_SECRET;
+  if (secret && secret.length >= 32) {
+    const key = await crypto.subtle.importKey(
+      "raw",
+      new TextEncoder().encode(secret),
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["sign"],
+    );
+    return encodeBytes(new Uint8Array(await crypto.subtle.sign("HMAC", key, input)));
+  }
+  return encodeBytes(new Uint8Array(await crypto.subtle.digest("SHA-256", input)));
+}
+
+async function enforceRateLimit(scope: string, identity: string, limit: number, windowSeconds: number) {
+  const now = Math.floor(Date.now() / 1000);
+  const windowStart = Math.floor(now / windowSeconds) * windowSeconds;
+  const expiresAt = windowStart + windowSeconds + 24 * 60 * 60;
+  const row = await getRawDb().prepare(`
+    INSERT INTO api_rate_limits (bucket_key, window_start, request_count, expires_at)
+    VALUES (?, ?, 1, ?)
+    ON CONFLICT(bucket_key) DO UPDATE SET
+      window_start = excluded.window_start,
+      request_count = CASE WHEN api_rate_limits.window_start = excluded.window_start
+        THEN api_rate_limits.request_count + 1 ELSE 1 END,
+      expires_at = excluded.expires_at
+    RETURNING request_count
+  `).bind(await rateLimitKey(scope, identity), windowStart, expiresAt).first<{ request_count: number }>();
+  if (!row || row.request_count > limit) {
+    throw new RequestError(429, "Trop de tentatives. Réessaie dans quelques instants.", Math.max(1, windowStart + windowSeconds - now));
+  }
+  const random = crypto.getRandomValues(new Uint8Array(1))[0];
+  if (scope === "profile-create" || random === 0) {
+    await getRawDb().prepare("DELETE FROM api_rate_limits WHERE expires_at < ?").bind(now).run();
+  }
 }
 
 async function readBody(request: Request): Promise<Record<string, unknown>> {
@@ -82,15 +143,22 @@ async function readBody(request: Request): Promise<Record<string, unknown>> {
   }
 }
 
-async function authenticate(request: Request): Promise<Profile | null> {
+async function authenticate(request: Request): Promise<AuthContext | null> {
+  const cookieToken = readCookie(request, SESSION_COOKIE);
   const header = request.headers.get("authorization") || "";
-  if (!header.startsWith("Bearer ")) return null;
-  const token = header.slice(7).trim();
-  if (!PROFILE_TOKEN_RE.test(token)) return null;
-  const row = await getRawDb().prepare(
-    "SELECT id, name, stats_reset_at, created_at FROM profiles WHERE token_hash = ? LIMIT 1",
-  ).bind(await hashToken(token)).first<Profile>();
-  return row || null;
+  const bearerToken = header.startsWith("Bearer ") ? header.slice(7).trim() : "";
+  const candidates = [
+    { token: cookieToken, source: "cookie" as const },
+    { token: bearerToken, source: "bearer" as const },
+  ].filter((candidate, index, values) => PROFILE_TOKEN_RE.test(candidate.token)
+    && values.findIndex((value) => value.token === candidate.token) === index);
+  for (const candidate of candidates) {
+    const row = await getRawDb().prepare(
+      "SELECT id, name, stats_reset_at, created_at FROM profiles WHERE token_hash = ? LIMIT 1",
+    ).bind(await hashToken(candidate.token)).first<Profile>();
+    if (row) return { profile: row, token: candidate.token, source: candidate.source };
+  }
+  return null;
 }
 
 function pathParts(request: Request) {
@@ -185,7 +253,24 @@ async function createProfile(request: Request) {
     if (String(error).toLowerCase().includes("unique")) return json({ error: "Ce pseudo est déjà utilisé. Essaie une variante." }, 409);
     throw error;
   }
-  return json({ profile: { id: profile.id, name, createdAt: now }, token }, 201);
+  return json(
+    { profile: { id: profile.id, name, createdAt: now }, token },
+    201,
+    { "set-cookie": sessionCookie(token) },
+  );
+}
+
+async function rotateLegacySession(auth: AuthContext) {
+  if (auth.source === "cookie") {
+    return json({ message: "Session sécurisée active." }, 200, { "set-cookie": sessionCookie(auth.token) });
+  }
+  const tokenBytes = crypto.getRandomValues(new Uint8Array(32));
+  const nextToken = encodeBytes(tokenBytes);
+  const result = await getRawDb().prepare(
+    "UPDATE profiles SET token_hash = ? WHERE id = ? AND token_hash = ?",
+  ).bind(await hashToken(nextToken), auth.profile.id, await hashToken(auth.token)).run();
+  if (!result.meta.changes) return json({ error: "La session doit être reconnectée." }, 401);
+  return json({ message: "Session sécurisée active." }, 200, { "set-cookie": sessionCookie(nextToken) });
 }
 
 async function listMatches(profile: Profile) {
@@ -408,29 +493,53 @@ async function handle(request: Request) {
   try {
     const parts = pathParts(request);
     if (request.method === "POST" && !isTrustedMutation(request)) return json({ error: "Origine de requête non autorisée." }, 403);
-    if (request.method === "POST" && parts[0] === "profile") return await createProfile(request);
+    if (request.method === "POST" && parts[0] === "profile") {
+      await enforceRateLimit("profile-create", clientNetworkIdentity(request), 6, 15 * 60);
+      return await createProfile(request);
+    }
     if (request.method === "GET" && parts[0] === "push" && parts[1] === "public-key") {
       return env.VAPID_SERVER_PUBLIC_KEY ? json({ publicKey: env.VAPID_SERVER_PUBLIC_KEY }) : json({ error: "Notifications non configurées." }, 503);
     }
-    const profile = await authenticate(request);
-    if (!profile) return json({ error: "Profil WQC non reconnu sur cet appareil." }, 401);
+    const auth = await authenticate(request);
+    if (!auth) return json({ error: "Profil WQC non reconnu sur cet appareil." }, 401);
+    const profile = auth.profile;
+    if (request.method === "POST") await enforceRateLimit("profile-write", profile.id, 120, 60);
+    if (request.method === "POST" && parts[0] === "session") return await rotateLegacySession(auth);
     if (request.method === "GET" && parts[0] === "me") return json({ profile: { id: profile.id, name: profile.name, createdAt: profile.created_at } });
     if (request.method === "GET" && parts[0] === "matches" && !parts[1]) return await listMatches(profile);
-    if (request.method === "POST" && parts[0] === "matches" && !parts[1]) return await createMatch(request, profile);
+    if (request.method === "POST" && parts[0] === "matches" && !parts[1]) {
+      await enforceRateLimit("match-proposal", profile.id, 20, 60 * 60);
+      return await createMatch(request, profile);
+    }
     if (parts[0] === "matches" && parts[1] && !isMatchId(parts[1])) return json({ error: "Défi introuvable." }, 404);
     if (request.method === "GET" && parts[0] === "matches" && parts[1] && !parts[2]) return await getMatch(parts[1], profile);
     if (request.method === "POST" && parts[0] === "matches" && parts[1] && parts[2] === "accept") return await acceptMatch(parts[1], profile);
     if (request.method === "POST" && parts[0] === "matches" && parts[1] && parts[2] === "decline") return await declineMatch(parts[1], profile);
     if (request.method === "POST" && parts[0] === "matches" && parts[1] && parts[2] === "cancel") return await cancelMatch(parts[1], profile);
-    if (request.method === "POST" && parts[0] === "matches" && parts[1] && parts[2] === "rematch") return await rematchMatch(parts[1], profile);
+    if (request.method === "POST" && parts[0] === "matches" && parts[1] && parts[2] === "rematch") {
+      await enforceRateLimit("match-proposal", profile.id, 20, 60 * 60);
+      return await rematchMatch(parts[1], profile);
+    }
     if (request.method === "POST" && parts[0] === "matches" && parts[1] && parts[2] === "answer") return await answerMatch(request, parts[1], profile);
     if (request.method === "POST" && parts[0] === "matches" && parts[1] && parts[2] === "erase") return await eraseMatch(parts[1], profile);
     if (request.method === "GET" && parts[0] === "stats") return await stats(profile);
-    if (request.method === "POST" && parts[0] === "reset-stats") return await resetStats(profile);
-    if (request.method === "POST" && parts[0] === "push" && parts[1] === "subscribe") return await subscribePush(request, profile);
+    if (request.method === "POST" && parts[0] === "reset-stats") {
+      await enforceRateLimit("stats-reset", profile.id, 5, 60 * 60);
+      return await resetStats(profile);
+    }
+    if (request.method === "POST" && parts[0] === "push" && parts[1] === "subscribe") {
+      await enforceRateLimit("push-subscribe", profile.id, 10, 60 * 60);
+      return await subscribePush(request, profile);
+    }
     return json({ error: "Route introuvable." }, 404);
   } catch (error) {
-    if (error instanceof RequestError) return json({ error: error.publicMessage }, error.status);
+    if (error instanceof RequestError) {
+      return json(
+        { error: error.publicMessage },
+        error.status,
+        error.retryAfter ? { "retry-after": String(error.retryAfter) } : {},
+      );
+    }
     console.error("WQC API error", error instanceof Error ? error.name : "UnknownError");
     return json({ error: "Une erreur serveur est survenue. Réessaie dans un instant." }, 500);
   }

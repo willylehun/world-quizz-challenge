@@ -714,7 +714,7 @@ async function api(path, options = {}) {
   if (state.profileToken) headers.authorization = `Bearer ${state.profileToken}`;
   const method = String(options.method || "GET").toUpperCase();
   const freshPath = method === "GET" ? `${path}${path.includes("?") ? "&" : "?"}_=${Date.now()}` : path;
-  const response = await fetch(`/api/game/${freshPath}`, { ...options, headers, cache: "no-store" });
+  const response = await fetch(`/api/game/${freshPath}`, { ...options, headers, cache: "no-store", credentials: "same-origin" });
   let payload = {};
   try { payload = await response.json(); } catch { /* Réponse sans JSON. */ }
   if (!response.ok) {
@@ -730,17 +730,24 @@ async function initProfile() {
   if (!PROFILE_TOKEN_RE.test(String(state.profileToken || ""))) state.profileToken = null;
   if (state.profileToken) {
     try {
-      const data = await api("me");
-      state.profile = data.profile;
-      storage.set("wqc-profile", state.profile);
-      updateProfileUI();
-      const requested = new URLSearchParams(location.search).get("duel");
-      if (isDuelId(requested)) openDuelMatch(requested).catch(() => openDuelHome());
-      return;
+      await api("session", { method: "POST", body: "{}" });
+      storage.remove("wqc-profile-token"); state.profileToken = null;
     } catch (error) {
       if (error.status !== 401) return;
       storage.remove("wqc-profile-token"); storage.remove("wqc-profile"); state.profileToken = null;
     }
+  }
+  try {
+    const data = await api("me");
+    state.profile = data.profile;
+    storage.set("wqc-profile", state.profile);
+    updateProfileUI();
+    const requested = new URLSearchParams(location.search).get("duel");
+    if (isDuelId(requested)) openDuelMatch(requested).catch(() => openDuelHome());
+    return;
+  } catch (error) {
+    if (error.status !== 401) return;
+    storage.remove("wqc-profile");
   }
   if (!els.profileSetupDialog.open) els.profileSetupDialog.showModal();
 }
@@ -760,8 +767,8 @@ async function createProfile(event) {
   try {
     const name = new FormData(els.profileForm).get("name");
     const data = await api("profile", { method: "POST", body: JSON.stringify({ name }) });
-    state.profileToken = data.token; state.profile = data.profile;
-    storage.set("wqc-profile-token", data.token); storage.set("wqc-profile", data.profile);
+    state.profileToken = null; state.profile = data.profile;
+    storage.remove("wqc-profile-token"); storage.set("wqc-profile", data.profile);
     updateProfileUI(); els.profileSetupDialog.close();
   } catch (error) { els.profileFormMessage.textContent = error.message; }
   finally { submit.disabled = false; }

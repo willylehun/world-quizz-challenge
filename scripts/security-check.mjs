@@ -42,6 +42,14 @@ const serviceWorkerRoute = readFileSync("app/service-worker.js/route.ts", "utf8"
 for (const directive of ["Cache-Control", "no-cache", "Service-Worker-Allowed", "X-Content-Type-Options"]) {
   if (!serviceWorkerRoute.includes(directive)) failures.push(`Protection du Service Worker manquante : ${directive}`);
 }
+const gameApi = readFileSync("app/api/game/[...path]/route.ts", "utf8");
+for (const directive of ["__Host-wqc_session", "HttpOnly", "Secure", "SameSite=Strict", "enforceRateLimit", "RATE_LIMIT_SECRET"]) {
+  if (!gameApi.includes(directive)) failures.push(`Protection de session ou anti-abus manquante : ${directive}`);
+}
+const gameClient = readFileSync("public/app.js", "utf8");
+if (!gameClient.includes('api("session"') || !gameClient.includes('storage.remove("wqc-profile-token")')) {
+  failures.push("Migration du jeton historique vers la session HttpOnly manquante.");
+}
 const viteConfig = readFileSync("vite.config.ts", "utf8");
 if (!/assets\s*:\s*{[\s\S]*?binding\s*:\s*["']ASSETS["'][\s\S]*?run_worker_first\s*:\s*true/.test(viteConfig)) {
   failures.push("Le Worker doit précéder les ressources statiques pour appliquer les en-têtes de sécurité.");

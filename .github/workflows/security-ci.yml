@@ -44,6 +44,9 @@ jobs:
       - name: Run repository security checks
         run: pnpm run security:check
 
+      - name: Validate database migrations
+        run: pnpm exec drizzle-kit check
+
       - name: Audit production dependencies
         run: pnpm audit --prod --audit-level high
 

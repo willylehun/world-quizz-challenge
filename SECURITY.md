@@ -8,6 +8,8 @@ Ne publiez pas de secret, de jeton, de donnée de joueur ni de procédure d’ex
 
 - Les secrets VAPID restent dans les variables d’environnement de l’hébergeur ; seule la clé publique est transmise au navigateur.
 - Les requêtes D1 utilisent des paramètres liés et les parties ne sont accessibles qu’à leurs deux participants.
+- Les sessions utilisent un cookie `HttpOnly`, `Secure` et `SameSite=Strict`; les anciens jetons navigateur sont renouvelés lors de leur migration.
+- Les créations de profils et écritures sensibles sont limitées par fenêtres temporelles, avec des clés techniques hachées et une rétention courte.
 - Les réponses API ne sont pas mises en cache et ne renvoient pas de détails d’erreur internes.
 - Les dépendances, le lint, TypeScript, la compilation et les contrôles de sécurité sont vérifiés par CI en lecture seule.
 - Aucune collecte analytique ni publicitaire n’est activée.

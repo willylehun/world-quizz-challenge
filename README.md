@@ -9,7 +9,7 @@ Application de quiz sur les pays, les capitales et les dirigeants, avec modes En
 
 ## Lancer le projet
 
-Installez Node.js 22+, puis lancez `pnpm install`, `pnpm run build` et `pnpm start`. Le mode Défi nécessite une base Cloudflare D1 et les variables VAPID décrites dans `.env.example`.
+Installez Node.js 22+, puis lancez `pnpm install`, `pnpm run build` et `pnpm start`. Le mode Défi nécessite une base Cloudflare D1 ainsi que les variables VAPID et le secret anti-abus décrits dans `.env.example`.
 
 ## Socle technique
 
