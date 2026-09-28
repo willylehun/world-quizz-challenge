@@ -434,7 +434,7 @@ function showAnswerFact(answerIso, onComplete) {
     state.answerFactTimer = null;
     els.answerFactToast?.classList.add("hidden");
     onComplete();
-  }, 2000);
+  }, 5000);
 }
 
 function recentQuestionIsos() { return new Set(storage.get("wqc-question-history", []).slice(-120)); }
